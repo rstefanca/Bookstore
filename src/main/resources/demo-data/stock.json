@@ -1,0 +1,120 @@
+{
+  "_comment": "Demo data for books created from demo-data/catalog.json (matched by ISBN), applied when such a book is created with the 'demo' profile active. Books without an entry have no stock.",
+  "stock": [
+    {
+      "isbn": "9781000000016",
+      "title": "Dune",
+      "quantity": 12
+    },
+    {
+      "isbn": "9781000000023",
+      "title": "Dune Messiah",
+      "quantity": 4
+    },
+    {
+      "isbn": "9781000000030",
+      "title": "Children of Dune",
+      "quantity": 3
+    },
+    {
+      "isbn": "9781000000047",
+      "title": "Foundation",
+      "quantity": 8
+    },
+    {
+      "isbn": "9781000000054",
+      "title": "I, Robot",
+      "quantity": 5
+    },
+    {
+      "isbn": "9781000000061",
+      "title": "Neuromancer",
+      "quantity": 6
+    },
+    {
+      "isbn": "9781000000078",
+      "title": "A Wizard of Earthsea",
+      "quantity": 7
+    },
+    {
+      "isbn": "9781000000085",
+      "title": "The Left Hand of Darkness",
+      "quantity": 2
+    },
+    {
+      "isbn": "9781000000092",
+      "title": "Good Omens",
+      "quantity": 15
+    },
+    {
+      "isbn": "9781000000108",
+      "title": "Guards! Guards!",
+      "quantity": 9
+    },
+    {
+      "isbn": "9781000000115",
+      "title": "American Gods",
+      "quantity": 6
+    },
+    {
+      "isbn": "9781000000122",
+      "title": "The Hobbit",
+      "quantity": 20
+    },
+    {
+      "isbn": "9781000000139",
+      "title": "Murder on the Orient Express",
+      "quantity": 10
+    },
+    {
+      "isbn": "9781000000146",
+      "title": "And Then There Were None",
+      "quantity": 1
+    },
+    {
+      "isbn": "9781000000153",
+      "title": "The Hound of the Baskervilles",
+      "quantity": 4
+    },
+    {
+      "isbn": "9781000000160",
+      "title": "Frankenstein",
+      "quantity": 5
+    },
+    {
+      "isbn": "9781000000177",
+      "title": "Pride and Prejudice",
+      "quantity": 11
+    },
+    {
+      "isbn": "9781000000184",
+      "title": "Nineteen Eighty-Four",
+      "quantity": 14
+    },
+    {
+      "isbn": "9781000000191",
+      "title": "Animal Farm",
+      "quantity": 9
+    },
+    {
+      "isbn": "9781000000207",
+      "title": "The Hitchhiker's Guide to the Galaxy",
+      "quantity": 13
+    },
+    {
+      "isbn": "9781000000214",
+      "title": "The Martian",
+      "quantity": 7
+    },
+    {
+      "isbn": "9781000000221",
+      "title": "Sapiens",
+      "quantity": 3
+    },
+    {
+      "isbn": "9781000000245",
+      "title": "The Shining",
+      "quantity": 2
+    }
+  ]
+}

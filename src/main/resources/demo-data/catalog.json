@@ -1,0 +1,476 @@
+{
+  "_comment": "Demo data, loaded when the 'demo' profile is active and the catalog is empty. ISBNs are placeholders with valid check digits; they don't identify the real editions. Descriptions are short summaries written for this demo. Genres refer to the genres seeded by migration V7.",
+  "authors": [
+    {
+      "key": "herbert",
+      "name": "Frank Herbert",
+      "favoriteGenres": [
+        "Science Fiction"
+      ]
+    },
+    {
+      "key": "asimov",
+      "name": "Isaac Asimov",
+      "favoriteGenres": [
+        "Science Fiction",
+        "Science"
+      ]
+    },
+    {
+      "key": "gibson",
+      "name": "William Gibson",
+      "favoriteGenres": [
+        "Science Fiction"
+      ]
+    },
+    {
+      "key": "le-guin",
+      "name": "Ursula K. Le Guin",
+      "favoriteGenres": [
+        "Fantasy",
+        "Science Fiction"
+      ]
+    },
+    {
+      "key": "pratchett",
+      "name": "Terry Pratchett",
+      "favoriteGenres": [
+        "Fantasy",
+        "Comedy"
+      ]
+    },
+    {
+      "key": "gaiman",
+      "name": "Neil Gaiman",
+      "favoriteGenres": [
+        "Fantasy",
+        "Horror"
+      ]
+    },
+    {
+      "key": "tolkien",
+      "name": "J. R. R. Tolkien",
+      "favoriteGenres": [
+        "Fantasy"
+      ]
+    },
+    {
+      "key": "christie",
+      "name": "Agatha Christie",
+      "favoriteGenres": [
+        "Mystery",
+        "Crime"
+      ]
+    },
+    {
+      "key": "conan-doyle",
+      "name": "Arthur Conan Doyle",
+      "favoriteGenres": [
+        "Mystery"
+      ]
+    },
+    {
+      "key": "shelley",
+      "name": "Mary Shelley",
+      "favoriteGenres": [
+        "Horror"
+      ]
+    },
+    {
+      "key": "austen",
+      "name": "Jane Austen",
+      "favoriteGenres": [
+        "Romance"
+      ]
+    },
+    {
+      "key": "orwell",
+      "name": "George Orwell",
+      "favoriteGenres": [
+        "Literary Fiction"
+      ]
+    },
+    {
+      "key": "adams",
+      "name": "Douglas Adams",
+      "favoriteGenres": [
+        "Science Fiction",
+        "Comedy"
+      ]
+    },
+    {
+      "key": "weir",
+      "name": "Andy Weir",
+      "favoriteGenres": [
+        "Science Fiction"
+      ]
+    },
+    {
+      "key": "harari",
+      "name": "Yuval Noah Harari",
+      "favoriteGenres": [
+        "History"
+      ]
+    },
+    {
+      "key": "sagan",
+      "name": "Carl Sagan",
+      "favoriteGenres": [
+        "Science"
+      ]
+    },
+    {
+      "key": "king",
+      "name": "Stephen King",
+      "favoriteGenres": [
+        "Horror",
+        "Thriller"
+      ]
+    },
+    {
+      "key": "liu",
+      "name": "Liu Cixin",
+      "favoriteGenres": [
+        "Science Fiction"
+      ]
+    }
+  ],
+  "books": [
+    {
+      "title": "Dune",
+      "authors": [
+        "herbert"
+      ],
+      "genres": [
+        "Science Fiction",
+        "Classics"
+      ],
+      "isbn": "9781000000016",
+      "publishedYear": 1965,
+      "description": "On the desert planet Arrakis, the only source of the precious spice, young Paul Atreides is drawn into a struggle between noble houses, an empire and the planet's desert people."
+    },
+    {
+      "title": "Dune Messiah",
+      "authors": [
+        "herbert"
+      ],
+      "genres": [
+        "Science Fiction"
+      ],
+      "isbn": "9781000000023",
+      "publishedYear": 1969,
+      "description": "Twelve years after his rise to power, Paul Atreides rules an empire waging holy war in his name and sees no way to stop what he started."
+    },
+    {
+      "title": "Children of Dune",
+      "authors": [
+        "herbert"
+      ],
+      "genres": [
+        "Science Fiction"
+      ],
+      "isbn": "9781000000030",
+      "publishedYear": 1976,
+      "description": "Paul's twin children inherit the desert world of Arrakis and an empire built on spice, prophecy and religion."
+    },
+    {
+      "title": "Foundation",
+      "authors": [
+        "asimov"
+      ],
+      "genres": [
+        "Science Fiction",
+        "Classics"
+      ],
+      "isbn": "9781000000047",
+      "publishedYear": 1951,
+      "description": "A mathematician who can predict the future of whole societies foresees the fall of the Galactic Empire and sets out to shorten the dark age that follows."
+    },
+    {
+      "title": "I, Robot",
+      "authors": [
+        "asimov"
+      ],
+      "genres": [
+        "Science Fiction",
+        "Classics"
+      ],
+      "isbn": "9781000000054",
+      "publishedYear": 1950,
+      "description": "Linked stories about robots bound by three laws meant to keep humans safe, and the surprising ways those laws play out."
+    },
+    {
+      "title": "Neuromancer",
+      "authors": [
+        "gibson"
+      ],
+      "genres": [
+        "Science Fiction"
+      ],
+      "isbn": "9781000000061",
+      "publishedYear": 1984,
+      "description": "A burned-out computer hacker is hired for one last job in cyberspace, working for an employer with an artificial intelligence behind it."
+    },
+    {
+      "title": "A Wizard of Earthsea",
+      "authors": [
+        "le-guin"
+      ],
+      "genres": [
+        "Fantasy",
+        "Young Adult"
+      ],
+      "isbn": "9781000000078",
+      "publishedYear": 1968,
+      "description": "A gifted, proud boy studying magic on an island archipelago unleashes a shadow on the world and must hunt it down."
+    },
+    {
+      "title": "The Left Hand of Darkness",
+      "authors": [
+        "le-guin"
+      ],
+      "genres": [
+        "Science Fiction",
+        "Literary Fiction"
+      ],
+      "isbn": "9781000000085",
+      "publishedYear": 1969,
+      "description": "An envoy to a frozen planet whose people have no fixed sex struggles to understand them as political intrigue closes in."
+    },
+    {
+      "title": "Good Omens",
+      "authors": [
+        "pratchett",
+        "gaiman"
+      ],
+      "genres": [
+        "Fantasy",
+        "Comedy"
+      ],
+      "isbn": "9781000000092",
+      "publishedYear": 1990,
+      "description": "An angel and a demon who have grown fond of life on Earth team up to stop the apocalypse, complicated by a misplaced Antichrist."
+    },
+    {
+      "title": "Guards! Guards!",
+      "authors": [
+        "pratchett"
+      ],
+      "genres": [
+        "Fantasy",
+        "Comedy"
+      ],
+      "isbn": "9781000000108",
+      "publishedYear": 1989,
+      "description": "The hapless City Watch of Ankh-Morpork has to deal with a secret society that summons a dragon to take over the city."
+    },
+    {
+      "title": "American Gods",
+      "authors": [
+        "gaiman"
+      ],
+      "genres": [
+        "Fantasy",
+        "Horror"
+      ],
+      "isbn": "9781000000115",
+      "publishedYear": 2001,
+      "description": "A newly released convict becomes the bodyguard of a mysterious old man, and is drawn into a war between old gods brought to America and new ones."
+    },
+    {
+      "title": "The Hobbit",
+      "authors": [
+        "tolkien"
+      ],
+      "genres": [
+        "Fantasy",
+        "Classics",
+        "Children's"
+      ],
+      "isbn": "9781000000122",
+      "publishedYear": 1937,
+      "description": "A comfort-loving hobbit is swept into a quest with thirteen dwarves and a wizard to reclaim treasure guarded by a dragon."
+    },
+    {
+      "title": "Murder on the Orient Express",
+      "authors": [
+        "christie"
+      ],
+      "genres": [
+        "Mystery",
+        "Crime",
+        "Classics"
+      ],
+      "isbn": "9781000000139",
+      "publishedYear": 1934,
+      "description": "Detective Hercule Poirot investigates a murder on a train stranded in the snow, where every passenger seems to have something to hide."
+    },
+    {
+      "title": "And Then There Were None",
+      "authors": [
+        "christie"
+      ],
+      "genres": [
+        "Mystery",
+        "Thriller"
+      ],
+      "isbn": "9781000000146",
+      "publishedYear": 1939,
+      "description": "Ten strangers invited to a remote island are accused of past crimes and start dying one by one."
+    },
+    {
+      "title": "The Hound of the Baskervilles",
+      "authors": [
+        "conan-doyle"
+      ],
+      "genres": [
+        "Mystery",
+        "Classics"
+      ],
+      "isbn": "9781000000153",
+      "publishedYear": 1902,
+      "description": "Sherlock Holmes and Dr. Watson investigate a family legend of a spectral hound haunting the moors."
+    },
+    {
+      "title": "Frankenstein",
+      "authors": [
+        "shelley"
+      ],
+      "genres": [
+        "Horror",
+        "Classics"
+      ],
+      "isbn": "9781000000160",
+      "publishedYear": 1818,
+      "description": "A young scientist creates a living being and abandons it, setting off a tragedy of loneliness and revenge."
+    },
+    {
+      "title": "Pride and Prejudice",
+      "authors": [
+        "austen"
+      ],
+      "genres": [
+        "Romance",
+        "Classics"
+      ],
+      "isbn": "9781000000177",
+      "publishedYear": 1813,
+      "description": "Elizabeth Bennet and Mr. Darcy misjudge each other in a story of manners, money and marriage in Regency England."
+    },
+    {
+      "title": "Nineteen Eighty-Four",
+      "authors": [
+        "orwell"
+      ],
+      "genres": [
+        "Literary Fiction",
+        "Classics",
+        "Science Fiction"
+      ],
+      "isbn": "9781000000184",
+      "publishedYear": 1949,
+      "description": "In a state of total surveillance, a low-level official begins to doubt the regime that rewrites history and controls thought."
+    },
+    {
+      "title": "Animal Farm",
+      "authors": [
+        "orwell"
+      ],
+      "genres": [
+        "Literary Fiction",
+        "Classics"
+      ],
+      "isbn": "9781000000191",
+      "publishedYear": 1945,
+      "description": "Farm animals overthrow their human owner, only for the pigs who lead them to become the new masters."
+    },
+    {
+      "title": "The Hitchhiker's Guide to the Galaxy",
+      "authors": [
+        "adams"
+      ],
+      "genres": [
+        "Science Fiction",
+        "Comedy"
+      ],
+      "isbn": "9781000000207",
+      "publishedYear": 1979,
+      "description": "Moments before Earth is demolished for a hyperspace bypass, an ordinary man is rescued by a friend who turns out to be an alien travel writer."
+    },
+    {
+      "title": "The Martian",
+      "authors": [
+        "weir"
+      ],
+      "genres": [
+        "Science Fiction",
+        "Thriller"
+      ],
+      "isbn": "9781000000214",
+      "publishedYear": 2011,
+      "description": "An astronaut left behind on Mars after a dust storm has to survive with engineering, botany and stubbornness until rescue can reach him."
+    },
+    {
+      "title": "Sapiens",
+      "authors": [
+        "harari"
+      ],
+      "genres": [
+        "History",
+        "Science"
+      ],
+      "isbn": "9781000000221",
+      "publishedYear": 2011,
+      "description": "A brief history of humankind, from foragers to farmers to the scientific revolution, and how shared stories let people cooperate in large numbers."
+    },
+    {
+      "title": "Cosmos",
+      "authors": [
+        "sagan"
+      ],
+      "genres": [
+        "Science"
+      ],
+      "isbn": "9781000000238",
+      "publishedYear": 1980,
+      "description": "A tour of the universe and of the history of science, from ancient astronomers to the search for life beyond Earth."
+    },
+    {
+      "title": "The Shining",
+      "authors": [
+        "king"
+      ],
+      "genres": [
+        "Horror",
+        "Thriller"
+      ],
+      "isbn": "9781000000245",
+      "publishedYear": 1977,
+      "description": "A struggling writer takes a winter caretaker job at an isolated hotel with his family, and the hotel begins to work on him."
+    },
+    {
+      "title": "The Three-Body Problem",
+      "authors": [
+        "liu"
+      ],
+      "genres": [
+        "Science Fiction"
+      ],
+      "isbn": "9781000000252",
+      "publishedYear": 2008,
+      "description": "A secret military project during China's Cultural Revolution sends a signal into space, and decades later the answer begins to change the world."
+    },
+    {
+      "title": "The Silmarillion",
+      "authors": [
+        "tolkien"
+      ],
+      "genres": [
+        "Fantasy"
+      ],
+      "isbn": "9781000000269",
+      "publishedYear": 1977,
+      "description": "The myths and legends of the elder days of Middle-earth, from its creation to the war against the first Dark Lord."
+    }
+  ]
+}

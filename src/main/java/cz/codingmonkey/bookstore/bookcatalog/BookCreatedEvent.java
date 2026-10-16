@@ -1,0 +1,24 @@
+package cz.codingmonkey.bookstore.bookcatalog;
+
+import java.util.List;
+import org.jmolecules.event.annotation.DomainEvent;
+
+/**
+ * Published by the book module after a book has been added to the catalog.
+ *
+ * @param authors     author names in credited order
+ * @param genres      genre names, sorted by name; may be empty
+ * @param description optional
+ * @param revision    the book's version; increases with every change, so consumers can ignore out-of-order events
+ * @param actor       username of whoever made the change; {@code null} without a signed-in user (startup,
+ *                    background work)
+ */
+@DomainEvent
+public record BookCreatedEvent(BookId bookId, String title, List<String> authors, List<String> genres, String isbn,
+        String description, long revision, String actor) {
+
+    public BookCreatedEvent {
+        authors = List.copyOf(authors);
+        genres = List.copyOf(genres);
+    }
+}

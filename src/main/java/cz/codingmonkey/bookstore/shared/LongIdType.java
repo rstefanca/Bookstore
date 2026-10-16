@@ -1,0 +1,111 @@
+package cz.codingmonkey.bookstore.shared;
+
+import jakarta.persistence.AttributeConverter;
+import java.io.Serializable;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.function.LongFunction;
+import java.util.function.ToLongFunction;
+import org.hibernate.type.descriptor.WrapperOptions;
+import org.hibernate.usertype.EnhancedUserType;
+
+/**
+ * Hibernate type that stores an immutable id value object (typically a record wrapping a {@code long}) in a
+ * {@code BIGINT} column. Unlike a JPA {@code AttributeConverter}, it may be used on {@code @Id} attributes, including
+ * database-generated ones. Subclasses only supply the wrapping and unwrapping functions; use with
+ * {@code @Type(SubclassName.class)}.
+ */
+public abstract class LongIdType<T> implements EnhancedUserType<T> {
+
+    private final Class<T> idClass;
+    private final LongFunction<T> wrap;
+    private final ToLongFunction<T> unwrap;
+
+    protected LongIdType(Class<T> idClass, LongFunction<T> wrap, ToLongFunction<T> unwrap) {
+        this.idClass = idClass;
+        this.wrap = wrap;
+        this.unwrap = unwrap;
+    }
+
+    @Override
+    public int getSqlType() {
+        return Types.BIGINT;
+    }
+
+    @Override
+    public Class<T> returnedClass() {
+        return idClass;
+    }
+
+    @Override
+    public T nullSafeGet(ResultSet rs, int position, WrapperOptions options) throws SQLException {
+        long value = rs.getLong(position);
+        return rs.wasNull() ? null : wrap.apply(value);
+    }
+
+    @Override
+    public void nullSafeSet(PreparedStatement st, T value, int index, WrapperOptions options) throws SQLException {
+        if (value == null) {
+            st.setNull(index, Types.BIGINT);
+        } else {
+            st.setLong(index, unwrap.applyAsLong(value));
+        }
+    }
+
+    @Override
+    public T deepCopy(T value) {
+        return value; // immutable
+    }
+
+    @Override
+    public boolean isMutable() {
+        return false;
+    }
+
+    @Override
+    public Serializable disassemble(T value) {
+        return value == null ? null : unwrap.applyAsLong(value);
+    }
+
+    @Override
+    public T assemble(Serializable cached, Object owner) {
+        return cached == null ? null : wrap.apply((Long) cached);
+    }
+
+    @Override
+    public String toSqlLiteral(T value) {
+        return Long.toString(unwrap.applyAsLong(value));
+    }
+
+    @Override
+    public String toString(T value) {
+        return Long.toString(unwrap.applyAsLong(value));
+    }
+
+    @Override
+    public T fromStringValue(CharSequence value) {
+        return wrap.apply(Long.parseLong(value.toString()));
+    }
+
+    /**
+     * Lets Hibernate unwrap ids to {@code Long} where it binds them itself, e.g. as the array parameter of batch
+     * fetches ({@code where book_id = any(?)} on PostgreSQL).
+     */
+    @Override
+    public AttributeConverter<T, Long> getValueConverter() {
+        return new AttributeConverter<>() {
+
+            @Override
+            public Long convertToDatabaseColumn(T id) {
+                return id == null ? null : unwrap.applyAsLong(id);
+            }
+
+            @Override
+            public T convertToEntityAttribute(Long value) {
+                return value == null ? null : wrap.apply(value);
+            }
+        };
+    }
+}

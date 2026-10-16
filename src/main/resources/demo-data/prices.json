@@ -1,0 +1,125 @@
+{
+  "_comment": "Demo data for books created from demo-data/catalog.json (matched by ISBN), applied when such a book is created with the 'demo' profile active. Amounts are in EUR; books without an entry have no price, i.e. are not for sale.",
+  "prices": [
+    {
+      "isbn": "9781000000016",
+      "title": "Dune",
+      "amount": "14.99"
+    },
+    {
+      "isbn": "9781000000023",
+      "title": "Dune Messiah",
+      "amount": "12.99"
+    },
+    {
+      "isbn": "9781000000030",
+      "title": "Children of Dune",
+      "amount": "12.99"
+    },
+    {
+      "isbn": "9781000000047",
+      "title": "Foundation",
+      "amount": "11.99"
+    },
+    {
+      "isbn": "9781000000054",
+      "title": "I, Robot",
+      "amount": "10.99"
+    },
+    {
+      "isbn": "9781000000061",
+      "title": "Neuromancer",
+      "amount": "13.50"
+    },
+    {
+      "isbn": "9781000000078",
+      "title": "A Wizard of Earthsea",
+      "amount": "9.99"
+    },
+    {
+      "isbn": "9781000000085",
+      "title": "The Left Hand of Darkness",
+      "amount": "12.50"
+    },
+    {
+      "isbn": "9781000000092",
+      "title": "Good Omens",
+      "amount": "11.99"
+    },
+    {
+      "isbn": "9781000000108",
+      "title": "Guards! Guards!",
+      "amount": "10.50"
+    },
+    {
+      "isbn": "9781000000115",
+      "title": "American Gods",
+      "amount": "13.99"
+    },
+    {
+      "isbn": "9781000000122",
+      "title": "The Hobbit",
+      "amount": "9.99"
+    },
+    {
+      "isbn": "9781000000139",
+      "title": "Murder on the Orient Express",
+      "amount": "8.99"
+    },
+    {
+      "isbn": "9781000000146",
+      "title": "And Then There Were None",
+      "amount": "8.99"
+    },
+    {
+      "isbn": "9781000000153",
+      "title": "The Hound of the Baskervilles",
+      "amount": "6.99"
+    },
+    {
+      "isbn": "9781000000160",
+      "title": "Frankenstein",
+      "amount": "5.99"
+    },
+    {
+      "isbn": "9781000000177",
+      "title": "Pride and Prejudice",
+      "amount": "5.99"
+    },
+    {
+      "isbn": "9781000000184",
+      "title": "Nineteen Eighty-Four",
+      "amount": "9.50"
+    },
+    {
+      "isbn": "9781000000191",
+      "title": "Animal Farm",
+      "amount": "7.50"
+    },
+    {
+      "isbn": "9781000000207",
+      "title": "The Hitchhiker's Guide to the Galaxy",
+      "amount": "10.99"
+    },
+    {
+      "isbn": "9781000000214",
+      "title": "The Martian",
+      "amount": "12.99"
+    },
+    {
+      "isbn": "9781000000221",
+      "title": "Sapiens",
+      "amount": "18.90"
+    },
+    {
+      "isbn": "9781000000238",
+      "title": "Cosmos",
+      "amount": "21.00"
+    },
+    {
+      "isbn": "9781000000245",
+      "title": "The Shining",
+      "amount": "11.50"
+    }
+  ]
+}

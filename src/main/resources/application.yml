@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: bookstore
+  # HTTP requests run on virtual threads (see shared.ThreadingConfiguration); background work uses this pool.
+  task:
+    execution:
+      thread-name-prefix: bookstore-task-
+      pool:
+        # Runs the async event listeners (audit, embeddings, cleanup); extra work waits in the queue.
+        core-size: 8
+        max-size: 8
+      shutdown:
+        # On shutdown, let running listener work finish (unfinished events are republished on restart anyway).
+        await-termination: true
+        await-termination-period: 30s
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bookstore
+    username: bookstore
+    password: bookstore
+  data:
+    web:
+      pageable:
+        # List endpoints: ?page= (0-based) and ?size=; larger sizes are capped.
+        default-page-size: 20
+        max-page-size: 100
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  modulith:
+    events:
+      # Schema is managed by Flyway (V2__create_event_publication.sql)
+      jdbc:
+        schema-initialization:
+          enabled: false
+      republish-outstanding-events-on-restart: true
+  ai:
+    mcp:
+      server:
+        # MCP (Model Context Protocol) endpoint for AI clients: Streamable HTTP at /mcp, read-only catalog tools.
+        name: bookstore-catalog
+        version: 1.0.0
+        type: SYNC
+        protocol: STREAMABLE
+        instructions: >-
+          Read-only access to a bookstore catalog: search books by title, author or genre, look up authors and
+          genres, and find similar books. Ids returned by one tool can be passed to the others.
+
+bookstore:
+  recommendation:
+    # all-MiniLM-L6-v2 (384 dimensions), pinned to the Spring AI 2.0.1 release
+    model-uri: https://media.githubusercontent.com/media/spring-projects/spring-ai/refs/tags/v2.0.1/models/spring-ai-transformers/src/main/resources/onnx/all-MiniLM-L6-v2/model.onnx
+    tokenizer-uri: https://raw.githubusercontent.com/spring-projects/spring-ai/v2.0.1/models/spring-ai-transformers/src/main/resources/onnx/all-MiniLM-L6-v2/tokenizer.json
+    cache-dir: ${java.io.tmpdir}/bookstore-embedding-model
+  pricing:
+    # Store currency; every price must be in it.
+    currency: EUR
+  cache:
+    # Catalog caches (books and authors by id); stale entries can survive at most this long.
+    caffeine-spec: maximumSize=10000,expireAfterWrite=10m
+  payment:
+    # The fake payment provider declines charges above this amount (EUR), to show the failure path.
+    decline-above: 100

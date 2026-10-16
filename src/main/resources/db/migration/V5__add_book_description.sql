@@ -1,0 +1,1 @@
+ALTER TABLE book ADD COLUMN description VARCHAR(2000);

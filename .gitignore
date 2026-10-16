@@ -1,0 +1,9 @@
+build/
+.gradle/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Personal Claude skill, kept locally only
+.claude/skills/karpathy-guidelines/

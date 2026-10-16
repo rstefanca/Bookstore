@@ -1,0 +1,143 @@
+package cz.codingmonkey.bookstore.storefront;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
+import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
+import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails.AuthorSummary;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
+import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
+import cz.codingmonkey.bookstore.pricing.Money;
+import cz.codingmonkey.bookstore.pricing.Prices;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.modulith.test.ApplicationModuleTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+/**
+ * Bootstraps only the storefront; the catalog and pricing modules are mocked through their public APIs.
+ */
+@ApplicationModuleTest
+@Import(TestcontainersConfiguration.class)
+class StorefrontModuleTests {
+
+    static final BookId DUNE = new BookId(1);
+    static final BookDetails DUNE_DETAILS = new BookDetails(DUNE, "Dune",
+            List.of(new AuthorSummary(new AuthorId(1), "Frank Herbert")), List.of(), "9780441013593", 1965, null);
+
+    @MockitoBean
+    BookCatalog catalog;
+
+    @MockitoBean
+    Prices prices;
+
+    @Autowired
+    StorefrontService storefront;
+
+    @Test
+    void fetchesBookAndPriceInParallel() {
+        // Each query waits until the other one has started too; run one after the other, the first would time out.
+        var bothStarted = new CyclicBarrier(2);
+        willAnswer(invocation -> {
+            bothStarted.await(5, TimeUnit.SECONDS);
+            return Optional.of(DUNE_DETAILS);
+        }).given(catalog).findBook(DUNE);
+        willAnswer(invocation -> {
+            bothStarted.await(5, TimeUnit.SECONDS);
+            return Optional.of(Money.of("12.90", "EUR"));
+        }).given(prices).priceOf(DUNE);
+
+        StorefrontBook book = storefront.findBook(DUNE);
+
+        assertThat(book.title()).isEqualTo("Dune");
+        assertThat(book.price()).isEqualTo(Money.of("12.90", "EUR"));
+    }
+
+    @Test
+    void booksWithoutAPriceAreNotForSale() {
+        given(catalog.findBook(DUNE)).willReturn(Optional.of(DUNE_DETAILS));
+        given(prices.priceOf(DUNE)).willReturn(Optional.empty());
+
+        assertThat(storefront.findBook(DUNE).price()).isNull();
+    }
+
+    @Test
+    void unknownBooksAreNotFound() {
+        given(catalog.findBook(DUNE)).willReturn(Optional.empty());
+        given(prices.priceOf(DUNE)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> storefront.findBook(DUNE)).isInstanceOf(BookNotFoundException.class);
+    }
+
+    @Test
+    void failuresSurfaceAsTheQuerysOwnException() {
+        given(catalog.findBook(DUNE)).willReturn(Optional.of(DUNE_DETAILS));
+        given(prices.priceOf(DUNE)).willThrow(new IllegalStateException("pricing is down"));
+
+        assertThatThrownBy(() -> storefront.findBook(DUNE))
+                .isInstanceOf(IllegalStateException.class).hasMessage("pricing is down");
+    }
+
+    @Test
+    void pricesAPageOfBooksWithOneLookup() {
+        var neuromancer = new BookDetails(new BookId(2), "Neuromancer", List.of(), List.of(), "9780441569595", 1984,
+                null);
+        var search = new BookSearch(null, null, null, null);
+        given(catalog.findBooks(search, Pageable.ofSize(2))).willReturn(
+                new PageImpl<>(List.of(DUNE_DETAILS, neuromancer), Pageable.ofSize(2), 7));
+        given(prices.pricesOf(List.of(DUNE, new BookId(2)))).willReturn(Map.of(DUNE, Money.of("10", "EUR")));
+
+        var page = storefront.findBooks(search, PriceRange.ANY, Pageable.ofSize(2));
+
+        assertThat(page.getContent()).extracting(StorefrontBook::title, StorefrontBook::price)
+                .containsExactly(
+                        tuple("Dune", Money.of("10", "EUR")),
+                        tuple("Neuromancer", null));
+        assertThat(page.getTotalElements()).isEqualTo(7);
+        verify(prices, never()).pricedBetween(any(), any());
+    }
+
+    @Test
+    void limitsTheSearchToBooksInThePriceRange() {
+        var search = new BookSearch("dune", null, null, null);
+        BookCondition inRange = (bookId, query, cb) -> cb.conjunction();
+        given(prices.pricedBetween(new BigDecimal("10"), new BigDecimal("15"))).willReturn(inRange);
+        given(catalog.findBooks(search.matching(inRange), Pageable.ofSize(5)))
+                .willReturn(new PageImpl<>(List.of(DUNE_DETAILS), Pageable.ofSize(5), 1));
+        given(prices.pricesOf(List.of(DUNE))).willReturn(Map.of(DUNE, Money.of("14.99", "EUR")));
+
+        var page = storefront.findBooks(search, new PriceRange(new BigDecimal("10"), new BigDecimal("15")),
+                Pageable.ofSize(5));
+
+        assertThat(page.getContent()).extracting(StorefrontBook::price).containsExactly(Money.of("14.99", "EUR"));
+    }
+
+    @Test
+    void validatesPriceRanges() {
+        assertThatThrownBy(() -> new PriceRange(new BigDecimal("-1"), null))
+                .isInstanceOf(InvalidPriceRangeException.class).hasMessage("Prices can't be negative");
+        assertThatThrownBy(() -> new PriceRange(new BigDecimal("20"), new BigDecimal("10")))
+                .isInstanceOf(InvalidPriceRangeException.class)
+                .hasMessage("minPrice (20) can't be above maxPrice (10)");
+        assertThat(new PriceRange(new BigDecimal("10"), new BigDecimal("10")).isAny()).isFalse();
+    }
+}
