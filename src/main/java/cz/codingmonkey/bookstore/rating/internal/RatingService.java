@@ -1,11 +1,14 @@
 package cz.codingmonkey.bookstore.rating.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
+import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.bookcatalog.BookOrder;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
@@ -45,6 +48,26 @@ class RatingService implements Ratings {
             summaries.put(bookId, stars == null ? RatingSummary.NONE : RatingSummary.of(stars));
         }
         return summaries;
+    }
+
+    @Override
+    public BookCondition ratedAtLeast(BigDecimal minAverage) {
+        return RatingRanking.atLeast(minAverage);
+    }
+
+    @Override
+    public BookOrder byRating() {
+        return RatingRanking.byScore(ratings.meanStars());
+    }
+
+    @Override
+    public Map<BookId, Integer> ratingsBy(String customer) {
+        return ratings.starsBy(customer);
+    }
+
+    @Override
+    public List<BookId> topRated(int offset, int count) {
+        return ratings.topRated(ratings.meanStars(), offset, count);
     }
 
     /**

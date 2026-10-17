@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -62,6 +63,44 @@ class BookRatings {
                             .put(rs.getInt("stars"), rs.getInt("n"));
                 });
         return counts;
+    }
+
+    /** The mean of all ratings in the store; 0 when there are none. */
+    double meanStars() {
+        return jdbc.sql("SELECT coalesce(avg(stars), 0) FROM book_rating").query(Double.class).single();
+    }
+
+    /** The customer's stars per book; empty if they rated nothing. */
+    Map<BookId, Integer> starsBy(String customer) {
+        Map<BookId, Integer> stars = new HashMap<>();
+        jdbc.sql("SELECT book_id, stars FROM book_rating WHERE customer = ?")
+                .param(customer)
+                .query(rs -> {
+                    stars.put(new BookId(rs.getLong("book_id")), rs.getInt("stars"));
+                });
+        return stars;
+    }
+
+    /**
+     * Rated books by rank score ({@link RatingRanking}), best first, ties by book id.
+     *
+     * @param mean   the mean of all ratings in the store
+     * @param offset how many of the best books to skip
+     * @param count  how many books to return at most
+     */
+    List<BookId> topRated(double mean, int offset, int count) {
+        return jdbc.sql("""
+                SELECT book_id FROM book_rating
+                GROUP BY book_id
+                ORDER BY (:prior * :mean + sum(stars))::float8 / (:prior + count(*)) DESC, book_id
+                OFFSET :offset LIMIT :count
+                """)
+                .param("prior", RatingRanking.PRIOR_WEIGHT)
+                .param("mean", mean)
+                .param("offset", offset)
+                .param("count", count)
+                .query((rs, row) -> new BookId(rs.getLong("book_id")))
+                .list();
     }
 
     /** @return number of ratings removed */
