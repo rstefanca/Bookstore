@@ -81,6 +81,23 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void onlyCustomersRateBooks() {
+        String stars = "{\"stars\": 4}";
+        anonymous.put().uri("/api/books/1/rating").contentType(MediaType.APPLICATION_JSON).body(stars)
+                .exchange().expectStatus().isUnauthorized();
+        anonymous.get().uri("/api/books/1/rating").exchange().expectStatus().isUnauthorized();
+        staff.put().uri("/api/books/1/rating").contentType(MediaType.APPLICATION_JSON).body(stars)
+                .exchange().expectStatus().isForbidden();
+        admin.put().uri("/api/books/1/rating").contentType(MediaType.APPLICATION_JSON).body(stars)
+                .exchange().expectStatus().isForbidden();
+
+        String customer = "customer-" + UUID.randomUUID().toString().substring(0, 8);
+        accounts.create(customer, "Cora", "Customer", STAFF_PASSWORD, Role.CUSTOMER);
+        client(customer, STAFF_PASSWORD).delete().uri("/api/books/1/rating")
+                .exchange().expectStatus().isForbidden();
+    }
+
+    @Test
     void auditLogAndAccountsAreForAdminsOnly() {
         anonymous.get().uri("/api/audit").exchange().expectStatus().isUnauthorized();
         staff.get().uri("/api/audit").exchange().expectStatus().isForbidden();

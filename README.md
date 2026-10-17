@@ -19,6 +19,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Payment | `cz.codingmonkey.bookstore.payment` | `PaymentReference`; request/result events | Fake payment provider: charges, declines, refunds |
 | Audit | `cz.codingmonkey.bookstore.audit` | none | Records an audit trail of every event that implements `shared.Auditable` (book, author, stock, price and order events) |
 | Recommendations | `cz.codingmonkey.bookstore.recommendation` | none | Similar-book suggestions from text embeddings stored with pgvector |
+| Ratings | `cz.codingmonkey.bookstore.rating` | `Ratings`, `RatingSummary` | Customers' 1-5 star ratings of books and per-book summaries (implementation in `rating.internal`) |
 
 ### Security
 
@@ -31,7 +32,7 @@ in the `account` table with BCrypt password hashes. Customers are accounts too: 
 | Anyone | Browse books, authors, genres, prices and recommendations; use the read-only MCP tools; check health; read the OpenAPI spec |
 | `STAFF` | Also create, change and delete books, authors and genres; manage prices and inventory; read price history |
 | `ADMIN` | Everything staff may, plus read the audit log, manage accounts and use the other actuator endpoints |
-| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders; signs up with `POST /api/accounts/register` |
+| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, rate books; signs up with `POST /api/accounts/register` |
 
 All rules are in `security.SecurityConfiguration`, and any path without a rule is denied, so new endpoints are
 closed until they're added there. Wrong credentials get 401 even on public endpoints; a signed-in account without
@@ -181,6 +182,15 @@ Events may arrive twice or late (retries): orders only move on from the state a 
 payments are stored by the order id, so repeated requests get the earlier answer; releases and refunds lock their
 row, so they happen once; the order notes each undo step it has seen (stock released, payment refunded), so a
 repeated result doesn't report it again. Full design: `docs/design/orders.md`.
+
+### Ratings
+
+Customers (`CUSTOMER`) rate a book with 1 to 5 stars (`PUT /api/books/{id}/rating`, body `{"stars": 4}`). Each
+customer has one rating per book (usernames compare case-insensitively); rating again replaces it, and ratings can't
+be removed. Staff and admins can't rate. `stars` must be a whole number from 1 to 5, else 400. `GET` on the same path
+returns your own rating, or 404 if you haven't rated the book. The rating module checks that the book exists and
+locks it against deletion while saving, like restock and set-price; deleting a book removes its ratings
+(`BookDeletedEvent`). Design: `docs/design/book-ratings.md`.
 
 ### Pagination
 
@@ -444,6 +454,8 @@ summary.
 | GET    | /api/orders                | Your orders, newest first (customer) |
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
+| PUT    | /api/books/{id}/rating     | Rate a book, body `{"stars": 4}` (1-5); replaces your earlier rating; 400 for other values, 404 if the book doesn't exist (customer) |
+| GET    | /api/books/{id}/rating     | Your rating of a book; 404 if you haven't rated it (customer) |
 | GET    | /api/orders/all            | All customers' orders (staff) |
 | GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
 | GET    | /actuator/health           | Health status, plus `/liveness` and `/readiness` probes (anyone; components for admins) |

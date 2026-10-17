@@ -35,8 +35,9 @@ or events, never another module's `internal` package or tables.
 
 Modules: `bookcatalog` (books, authors, genres), `inventory` (stock + reservations), `pricing` (`Money`, list
 prices, price history), `storefront` (customer reads composing catalog + prices), `ordering` (cart, orders,
-`OrderProcess`), `payment` (fake provider), `audit`, `recommendation` (pgvector embeddings), `security`
-(accounts, `SecurityConfiguration`), `shared` (technical building blocks only, no domain logic).
+`OrderProcess`), `payment` (fake provider), `audit`, `recommendation` (pgvector embeddings), `rating` (customer
+star ratings), `security` (accounts, `SecurityConfiguration`), `shared` (technical building blocks only, no domain
+logic).
 
 Dependencies only point one way. Patterns used to keep it that way:
 - **SPI instead of calling back**: `bookcatalog.BookDeletionPolicy` is implemented by inventory/pricing so catalog

@@ -23,6 +23,10 @@ spring:
         # List endpoints: ?page= (0-based) and ?size=; larger sizes are capped.
         default-page-size: 20
         max-page-size: 100
+  jackson:
+    deserialization:
+      # {"stars": 4.5} is a 400, not silently truncated to 4.
+      accept-float-as-int: false
   jpa:
     hibernate:
       ddl-auto: validate

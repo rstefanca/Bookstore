@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.security;
 
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.http.HttpMethod.PUT;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -47,6 +48,9 @@ class SecurityConfiguration {
                         .requestMatchers(GET, "/api/orders/all").hasRole(Role.STAFF.name())
                         .requestMatchers("/api/cart", "/api/cart/**", "/api/orders", "/api/orders/**")
                         .hasRole(Role.CUSTOMER.name())
+                        // Customers: rate books.
+                        .requestMatchers(GET, "/api/books/*/rating").hasRole(Role.CUSTOMER.name())
+                        .requestMatchers(PUT, "/api/books/*/rating").hasRole(Role.CUSTOMER.name())
                         // Staff (and admins): maintain the catalog, prices and inventory.
                         .requestMatchers("/api/books/**", "/api/authors/**", "/api/genres/**", "/api/inventory/**")
                         .hasRole(Role.STAFF.name())
