@@ -25,7 +25,8 @@ import org.hibernate.annotations.Type;
 
 /**
  * An order and where it is in the order process ({@link OrderStatus}). Each step method moves it on only from the
- * state it expects and returns whether it did, so late or repeated events are ignored.
+ * state it expects and returns whether it did, so late or repeated events are ignored. The undo steps (stock
+ * released, payment refunded) don't change the state; flags record that they were seen.
  */
 @Entity
 @Table(name = "customer_order")
@@ -61,6 +62,13 @@ class CustomerOrder {
 
     @Column(nullable = false)
     private Instant createdAt;
+
+    /** The undo steps seen so far; set only through {@link OrderRepository}, without a version check. */
+    @Column(nullable = false)
+    private boolean stockReleased;
+
+    @Column(nullable = false)
+    private boolean paymentRefunded;
 
     @Version
     private long version;

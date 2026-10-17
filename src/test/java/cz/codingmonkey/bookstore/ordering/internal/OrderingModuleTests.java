@@ -318,6 +318,23 @@ class OrderingModuleTests {
     }
 
     @Test
+    void repeatedUndoResultsArePublishedOnce(PublishedEvents events, Scenario scenario) {
+        OrderView order = placeOrder();
+        reserve(scenario, order);
+        awaitStep(scenario, new PaymentSucceeded(payment(order)), order, OrderStep.CONFIRMED);
+        orders.cancel(customer, order.id());
+        awaitStep(scenario, new StockReleased(reservation(order)), order, OrderStep.STOCK_RELEASED);
+        awaitStep(scenario, new PaymentRefunded(payment(order)), order, OrderStep.PAYMENT_REFUNDED);
+
+        // Both results delivered again (e.g. resubmitted after a crash).
+        scenario.publish(new StockReleased(reservation(order))).andWaitForStateChange(() -> true).andVerify(x -> { });
+        scenario.publish(new PaymentRefunded(payment(order))).andWaitForStateChange(() -> true).andVerify(x -> { });
+
+        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(3)).untilAsserted(() -> assertThat(
+                steps(events, order)).containsOnlyOnce(OrderStep.STOCK_RELEASED, OrderStep.PAYMENT_REFUNDED));
+    }
+
+    @Test
     void progressEventsSurviveTheEventRegistry() {
         var event = new OrderProgressedEvent(new OrderId(5), OrderStep.PAYMENT_DECLINED, "Declined", "rita",
                 Instant.parse("2026-10-16T08:00:00.123456Z"));

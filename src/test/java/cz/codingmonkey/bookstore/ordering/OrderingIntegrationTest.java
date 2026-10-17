@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.inventory.StockReleased;
+import cz.codingmonkey.bookstore.payment.PaymentRefunded;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,6 +22,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.modulith.events.IncompleteEventPublications;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
@@ -40,6 +43,9 @@ class OrderingIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    IncompleteEventPublications incompletePublications;
 
     String buyer;
     RestTestClient customer;
@@ -87,6 +93,34 @@ class OrderingIntegrationTest {
         assertThat(actions(audit).subList(5, 7)) // undone in the background, in either order
                 .containsExactlyInAnyOrder("ORDER_STOCK_RELEASED", "ORDER_PAYMENT_REFUNDED");
         assertThat(audit).extracting(entry -> entry.get("actor")).containsOnly(buyer);
+    }
+
+    @Test
+    void redeliveredUndoResultsAreAuditedOnce() {
+        setQuantity(book("9.99", 2), 1).expectStatus().isOk();
+        long order = checkout();
+        awaitStatus(order, "CONFIRMED");
+        customer.post().uri("/api/orders/{id}/cancel", order).exchange().expectStatus().isOk();
+        auditUntil(order, 7);
+
+        // As if the app crashed after the order process handled the release and the refund, but before their
+        // publications were marked completed: on restart they are delivered again.
+        List<UUID> undone = await().atMost(Duration.ofSeconds(10)).until(() -> jdbc.queryForList("""
+                SELECT id FROM event_publication
+                 WHERE listener_id LIKE '%OrderProcess%' AND event_type IN (?, ?) AND status = 'COMPLETED'
+                   AND (serialized_event::jsonb ->> 'reservationId' = ? OR serialized_event::jsonb ->> 'reference' = ?)
+                """, UUID.class, StockReleased.class.getName(), PaymentRefunded.class.getName(),
+                String.valueOf(order), String.valueOf(order)), ids -> ids.size() == 2);
+        undone.forEach(id -> jdbc.update(
+                "UPDATE event_publication SET status = 'FAILED', completion_date = NULL WHERE id = ?", id));
+        incompletePublications.resubmitIncompletePublications(publication ->
+                undone.contains(publication.getIdentifier()));
+
+        await().atMost(Duration.ofSeconds(10)).until(() -> undone.stream().allMatch(id -> "COMPLETED".equals(
+                jdbc.queryForObject("SELECT status FROM event_publication WHERE id = ?", String.class, id))));
+        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(3)).untilAsserted(() ->
+                assertThat(actions(audit(order))).hasSize(7)
+                        .containsOnlyOnce("ORDER_STOCK_RELEASED", "ORDER_PAYMENT_REFUNDED"));
     }
 
     @Test

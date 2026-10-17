@@ -62,9 +62,8 @@ Purchases are audited step by step. The ordering module reports every step it se
 `ORDER_PLACED`, `ORDER_STOCK_RESERVED` or `ORDER_STOCK_MISSING`, `ORDER_PAYMENT_CHARGED` or `ORDER_PAYMENT_DECLINED`,
 `ORDER_CONFIRMED`, `ORDER_REJECTED`, `ORDER_CANCELLED`, and the undo steps `ORDER_STOCK_RELEASED` and
 `ORDER_PAYMENT_REFUNDED`. Each entry has the order as subject and the customer as actor, also for steps done in the
-background. A redelivered order step is recorded once; only the undo steps (`ORDER_STOCK_RELEASED`,
-`ORDER_PAYMENT_REFUNDED`) can appear twice, if the ordering module's own listener is retried after a crash. Every audit
-log line names only the action and the subject. `GET /api/audit?subjectType=ORDER&subjectId=N` shows one purchase. Full
+background. Each step is recorded once per order, even when its event is delivered again (see above). Every audit log
+line names only the action and the subject. `GET /api/audit?subjectType=ORDER&subjectId=N` shows one purchase. Full
 design: `docs/design/purchase-audit.md`.
 
 Checking a BCrypt password takes tens of milliseconds, on every request with HTTP Basic. That's fine for staff
@@ -180,7 +179,8 @@ orders, so dependencies only go from ordering to them (no cycle).
 
 Events may arrive twice or late (retries): orders only move on from the state a step expects; reservations and
 payments are stored by the order id, so repeated requests get the earlier answer; releases and refunds lock their
-row, so they happen once. Full design: `docs/design/orders.md`.
+row, so they happen once; the order notes each undo step it has seen (stock released, payment refunded), so a
+repeated result doesn't report it again. Full design: `docs/design/orders.md`.
 
 ### Pagination
 

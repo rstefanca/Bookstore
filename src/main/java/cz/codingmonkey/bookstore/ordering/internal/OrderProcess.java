@@ -100,17 +100,29 @@ class OrderProcess {
         });
     }
 
-    /** Undo steps don't change the order's state; inventory announces a release only once. */
+    /**
+     * Undo steps don't change the order's state; the order notes that the release was seen, so a release delivered
+     * again (e.g. resubmitted after a crash) isn't published twice.
+     */
     @ApplicationModuleListener
     void on(StockReleased event) {
-        withOrder(event.reservationId().value(), order -> progress(order, OrderStep.STOCK_RELEASED, "Stock put back"));
+        withOrder(event.reservationId().value(), order -> {
+            if (orders.markStockReleased(order.getId()) == 1) {
+                progress(order, OrderStep.STOCK_RELEASED, "Stock put back");
+                changes.info("Order {}: stock released", order.getId());
+            }
+        });
     }
 
-    /** Payment announces a refund only once. */
+    /** Like the release: published the first time only. */
     @ApplicationModuleListener
     void on(PaymentRefunded event) {
-        withOrder(event.reference().value(),
-                order -> progress(order, OrderStep.PAYMENT_REFUNDED, "Refunded " + order.getTotal()));
+        withOrder(event.reference().value(), order -> {
+            if (orders.markPaymentRefunded(order.getId()) == 1) {
+                progress(order, OrderStep.PAYMENT_REFUNDED, "Refunded " + order.getTotal());
+                changes.info("Order {}: payment refunded", order.getId());
+            }
+        });
     }
 
     private void progress(CustomerOrder order, OrderStep step, String detail) {

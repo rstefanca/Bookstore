@@ -75,7 +75,9 @@ audit log show who caused them.
 **Safe under retries and duplicates.** Events can arrive twice (retries) or late. Each handler checks the
 order's state and ignores events that don't fit it (e.g. `StockReserved` for an order that is no longer
 `PENDING`). Reservations and payments are keyed by the order id, so repeating a request returns the earlier
-result instead of reserving or charging twice.
+result instead of reserving or charging twice. The undo results (`StockReleased`, `PaymentRefunded`) don't change
+the order's state, so the order keeps a flag for each (`stock_released`, `payment_refunded`, set by a conditional
+update that doesn't touch the version) and reports the undo step only the first time.
 
 ## Inventory changes
 
