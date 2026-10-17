@@ -420,6 +420,16 @@ on purpose (*The Three-Body Problem* and *The Silmarillion* aren't for sale, *Co
 placeholders and don't identify real editions. Run any other setup with `--spring.profiles.active=demo` to get the
 same data; without the profile nothing is loaded.
 
+The `demo` profile also creates two staff (`STAFF`) accounts from `demo-data/accounts.json`
+(`security.DemoAccountData`), after the initial admin:
+
+| Username | Password | Name |
+|----------|----------|------|
+| `anna` | `anna-demo-password` | Anna Nováková |
+| `tomas` | `tomas-demo-password` | Tomáš Dvořák |
+
+The admin's password is generated and logged at startup unless `bookstore.security.initial-admin.password` is set.
+
 Or run `BookstoreApplication` against your own Postgres (see `application.yml`, default `localhost:5432/bookstore`,
 user/pass `bookstore`). It needs the pgvector extension installed (e.g. the `pgvector/pgvector:pg17` image); the
 `V11` migration enables it with `CREATE EXTENSION`, which needs sufficient database privileges.

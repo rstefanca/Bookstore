@@ -6,6 +6,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
  * password is generated and logged once.
  */
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE) // before anything else creates accounts (demo data)
 class InitialAdminAccount implements ApplicationRunner {
 
     private static final Logger log = LogManager.getLogger(InitialAdminAccount.class);

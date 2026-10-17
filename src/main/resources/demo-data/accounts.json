@@ -1,0 +1,17 @@
+{
+  "_comment": "Demo staff accounts, created at startup with the 'demo' profile if their username doesn't exist yet. Demo passwords only: never use this profile in production.",
+  "accounts": [
+    {
+      "username": "anna",
+      "firstName": "Anna",
+      "lastName": "Nováková",
+      "password": "anna-demo-password"
+    },
+    {
+      "username": "tomas",
+      "firstName": "Tomáš",
+      "lastName": "Dvořák",
+      "password": "tomas-demo-password"
+    }
+  ]
+}

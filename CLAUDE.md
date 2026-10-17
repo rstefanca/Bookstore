@@ -113,7 +113,8 @@ existing migration. Migrations that transform data have dedicated tests (`Author
 
 The `demo` profile (enabled by `bootTestRun`) loads `src/main/resources/demo-data/*.json`. Catalog data is loaded
 through the regular services; pricing and inventory each listen for new books and apply their own file by ISBN,
-so modules stay independent.
+so modules stay independent. Security creates two demo staff accounts (`accounts.json`) after the initial admin,
+which is only created while no account exists.
 
 ## Tests
 
