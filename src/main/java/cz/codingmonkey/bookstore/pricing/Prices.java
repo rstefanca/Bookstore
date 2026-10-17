@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Read access to current book prices for other modules. A book without a price is not for sale.
@@ -24,5 +25,5 @@ public interface Prices {
      * @param min optional lower bound
      * @param max optional upper bound
      */
-    BookCondition pricedBetween(BigDecimal min, BigDecimal max);
+    BookCondition pricedBetween(@Nullable BigDecimal min, @Nullable BigDecimal max);
 }

@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.pricing;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.shared.Auditable;
 import org.jmolecules.event.annotation.DomainEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Published by the pricing module when a book's price is set, changed or removed.
@@ -15,9 +16,9 @@ import org.jmolecules.event.annotation.DomainEvent;
 @DomainEvent
 public record PriceChangedEvent(
         BookId bookId,
-        Money oldPrice,
-        Money newPrice,
-        String actor
+        @Nullable Money oldPrice,
+        @Nullable Money newPrice,
+        @Nullable String actor
 ) implements Auditable {
 
     @Override

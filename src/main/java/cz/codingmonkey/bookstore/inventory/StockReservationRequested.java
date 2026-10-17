@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.inventory;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import java.util.List;
 import org.jmolecules.event.annotation.DomainEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Asks the inventory to take stock for all lines, or none. Answered with {@link StockReserved} or
@@ -11,7 +12,7 @@ import org.jmolecules.event.annotation.DomainEvent;
  * @param actor username of whoever caused the request; {@code null} without one
  */
 @DomainEvent
-public record StockReservationRequested(ReservationId reservationId, List<Line> lines, String actor) {
+public record StockReservationRequested(ReservationId reservationId, List<Line> lines, @Nullable String actor) {
 
     public StockReservationRequested {
         lines = List.copyOf(lines);

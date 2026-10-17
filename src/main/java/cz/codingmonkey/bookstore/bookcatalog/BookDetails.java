@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.bookcatalog;
 
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A book as other modules see it.
@@ -10,7 +11,7 @@ import java.util.List;
  * @param description optional
  */
 public record BookDetails(BookId id, String title, List<AuthorSummary> authors, List<GenreSummary> genres,
-        String isbn, Integer publishedYear, String description) {
+        String isbn, @Nullable Integer publishedYear, @Nullable String description) {
 
     public record AuthorSummary(AuthorId id, String name) {
     }

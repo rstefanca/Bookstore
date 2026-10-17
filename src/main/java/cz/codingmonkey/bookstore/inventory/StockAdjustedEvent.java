@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.inventory;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.shared.Auditable;
 import org.jmolecules.event.annotation.DomainEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Published by the inventory module after a book's stock level changed.
@@ -13,7 +14,8 @@ import org.jmolecules.event.annotation.DomainEvent;
  *                    background work)
  */
 @DomainEvent
-public record StockAdjustedEvent(BookId bookId, int delta, int newQuantity, String actor) implements Auditable {
+public record StockAdjustedEvent(BookId bookId, int delta, int newQuantity, @Nullable String actor)
+        implements Auditable {
 
     public boolean isOutOfStock() {
         return newQuantity == 0;

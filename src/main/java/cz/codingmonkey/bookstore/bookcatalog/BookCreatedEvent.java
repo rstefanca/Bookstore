@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.bookcatalog;
 import cz.codingmonkey.bookstore.shared.Auditable;
 import java.util.List;
 import org.jmolecules.event.annotation.DomainEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Published by the book module after a book has been added to the catalog.
@@ -21,9 +22,9 @@ public record BookCreatedEvent(
         List<String> authors,
         List<String> genres,
         String isbn,
-        String description,
+        @Nullable String description,
         long revision,
-        String actor
+        @Nullable String actor
 ) implements Auditable {
 
     public BookCreatedEvent {

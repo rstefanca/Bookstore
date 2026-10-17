@@ -1,5 +1,7 @@
 package cz.codingmonkey.bookstore.bookcatalog;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Filters for listing books. Every filter is optional ({@code null}); given filters combine with AND.
  *
@@ -9,11 +11,12 @@ package cz.codingmonkey.bookstore.bookcatalog;
  * @param genreId    the book is in this genre
  * @param condition  the book matches another module's condition, e.g. pricing's price range
  */
-public record BookSearch(String title, String authorName, AuthorId authorId, GenreId genreId,
-        BookCondition condition) {
+public record BookSearch(@Nullable String title, @Nullable String authorName, @Nullable AuthorId authorId,
+        @Nullable GenreId genreId, @Nullable BookCondition condition) {
 
     /** A search without another module's condition. */
-    public BookSearch(String title, String authorName, AuthorId authorId, GenreId genreId) {
+    public BookSearch(@Nullable String title, @Nullable String authorName, @Nullable AuthorId authorId,
+            @Nullable GenreId genreId) {
         this(title, authorName, authorId, genreId, null);
     }
 

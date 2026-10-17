@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.bookcatalog;
 
 import java.util.List;
 import org.jmolecules.event.annotation.DomainEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Published by the book module after a book has been changed. Carries the book's full new state.
@@ -13,7 +14,7 @@ import org.jmolecules.event.annotation.DomainEvent;
  */
 @DomainEvent
 public record BookUpdatedEvent(BookId bookId, String title, List<String> authors, List<String> genres, String isbn,
-        String description, long revision) {
+        @Nullable String description, long revision) {
 
     public BookUpdatedEvent {
         authors = List.copyOf(authors);

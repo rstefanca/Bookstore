@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.bookcatalog;
 
 import cz.codingmonkey.bookstore.shared.Auditable;
 import org.jmolecules.event.annotation.DomainEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Published by the book module after a book has been removed from the catalog.
@@ -10,7 +11,7 @@ import org.jmolecules.event.annotation.DomainEvent;
  *              work)
  */
 @DomainEvent
-public record BookDeletedEvent(BookId bookId, String isbn, String actor) implements Auditable {
+public record BookDeletedEvent(BookId bookId, String isbn, @Nullable String actor) implements Auditable {
 
     @Override
     public String auditAction() {
