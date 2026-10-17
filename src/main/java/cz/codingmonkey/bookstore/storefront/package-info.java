@@ -3,5 +3,6 @@
  * {@link cz.codingmonkey.bookstore.bookcatalog.BookCatalog} and pricing's
  * {@link cz.codingmonkey.bookstore.pricing.Prices}), so those modules don't need to know about each other.
  */
+@org.jspecify.annotations.NullMarked
 @org.springframework.modulith.ApplicationModule(displayName = "Storefront")
 package cz.codingmonkey.bookstore.storefront;

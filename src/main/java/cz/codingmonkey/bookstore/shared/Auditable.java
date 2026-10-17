@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.shared;
 
 import java.time.Instant;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An event that is recorded in the audit trail. The event describes itself, so the audit module needs no knowledge of
@@ -24,7 +25,7 @@ public interface Auditable {
      * Username of whoever made the change, captured at publish time ({@link CurrentUser}) because listeners run with
      * no signed-in user; {@code null} without a signed-in user.
      */
-    String actor();
+    @Nullable String actor();
 
     /**
      * When the change happened; by default when it is recorded. An event that must not be recorded twice when delivered

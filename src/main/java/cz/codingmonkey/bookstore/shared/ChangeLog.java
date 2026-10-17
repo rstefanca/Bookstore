@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.shared;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -26,7 +27,7 @@ public final class ChangeLog {
     /**
      * @param message a Log4j message with {@code {}} placeholders for the {@code params}
      */
-    public void info(String message, Object... params) {
+    public void info(String message, @Nullable Object... params) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

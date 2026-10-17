@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.shared;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,7 +18,7 @@ public final class CurrentUser {
      * startup, or background work such as event listeners (which should pass on the actor of the event that
      * triggered them instead).
      */
-    public static String username() {
+    public static @Nullable String username() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {

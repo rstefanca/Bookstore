@@ -4,5 +4,6 @@
  * {@code bookstore.payment.decline-above}) and refunds on {@link cz.codingmonkey.bookstore.payment.RefundRequested}.
  * It doesn't know what is being paid for.
  */
+@org.jspecify.annotations.NullMarked
 @org.springframework.modulith.ApplicationModule(displayName = "Payment")
 package cz.codingmonkey.bookstore.payment;

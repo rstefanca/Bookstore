@@ -9,5 +9,6 @@
  * {@link cz.codingmonkey.bookstore.inventory.StockReleaseRequested} (announced with
  * {@link cz.codingmonkey.bookstore.inventory.StockReleased}). The inventory doesn't know who reserves.
  */
+@org.jspecify.annotations.NullMarked
 @org.springframework.modulith.ApplicationModule(displayName = "Inventory")
 package cz.codingmonkey.bookstore.inventory;

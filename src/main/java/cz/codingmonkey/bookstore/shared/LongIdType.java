@@ -9,6 +9,7 @@ import java.sql.Types;
 import java.util.function.LongFunction;
 import org.hibernate.type.descriptor.WrapperOptions;
 import org.hibernate.usertype.EnhancedUserType;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Hibernate type that stores a {@link LongId} in a {@code BIGINT} column. Unlike a JPA {@code AttributeConverter},
@@ -36,13 +37,14 @@ public abstract class LongIdType<T extends LongId> implements EnhancedUserType<T
     }
 
     @Override
-    public T nullSafeGet(ResultSet rs, int position, WrapperOptions options) throws SQLException {
+    public @Nullable T nullSafeGet(ResultSet rs, int position, WrapperOptions options) throws SQLException {
         long value = rs.getLong(position);
         return rs.wasNull() ? null : wrap.apply(value);
     }
 
     @Override
-    public void nullSafeSet(PreparedStatement st, T value, int index, WrapperOptions options) throws SQLException {
+    public void nullSafeSet(PreparedStatement st, @Nullable T value, int index, WrapperOptions options)
+            throws SQLException {
         if (value == null) {
             st.setNull(index, Types.BIGINT);
         } else {
@@ -51,7 +53,7 @@ public abstract class LongIdType<T extends LongId> implements EnhancedUserType<T
     }
 
     @Override
-    public T deepCopy(T value) {
+    public @Nullable T deepCopy(@Nullable T value) {
         return value; // immutable
     }
 
@@ -61,12 +63,12 @@ public abstract class LongIdType<T extends LongId> implements EnhancedUserType<T
     }
 
     @Override
-    public Serializable disassemble(T value) {
+    public @Nullable Serializable disassemble(@Nullable T value) {
         return value == null ? null : value.value();
     }
 
     @Override
-    public T assemble(Serializable cached, Object owner) {
+    public @Nullable T assemble(@Nullable Serializable cached, Object owner) {
         return cached == null ? null : wrap.apply((Long) cached);
     }
 
@@ -94,12 +96,12 @@ public abstract class LongIdType<T extends LongId> implements EnhancedUserType<T
         return new AttributeConverter<>() {
 
             @Override
-            public Long convertToDatabaseColumn(T id) {
+            public @Nullable Long convertToDatabaseColumn(@Nullable T id) {
                 return id == null ? null : id.value();
             }
 
             @Override
-            public T convertToEntityAttribute(Long value) {
+            public @Nullable T convertToEntityAttribute(@Nullable Long value) {
                 return value == null ? null : wrap.apply(value);
             }
         };
