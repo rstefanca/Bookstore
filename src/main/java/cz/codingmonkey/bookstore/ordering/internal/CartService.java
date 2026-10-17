@@ -133,7 +133,7 @@ class CartService {
         CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency));
         cart.clear();
 
-        report(customer, order, lines);
+        reserveStockAndPlaceOrder(customer, order, lines);
 
         return OrderView.from(order);
     }
@@ -172,7 +172,7 @@ class CartService {
         }
     }
 
-    private void report(String customer, CustomerOrder order, List<OrderLine> lines) {
+    private void reserveStockAndPlaceOrder(String customer, CustomerOrder order, List<OrderLine> lines) {
         events.publishEvent(new StockReservationRequested(new ReservationId(order.getId().value()),
                 lines.stream().map(line -> new StockReservationRequested.Line(line.getBookId(), line.getQuantity()))
                         .toList(),

@@ -60,7 +60,7 @@ class StockReservationService {
                         lines.stream().map(ReservationLine::getBookId).toList()).stream()
                 .collect(Collectors.toMap(InventoryItem::getBookId, Function.identity()));
 
-        List<ReservationLine> missing = new ArrayList<>();
+        List<ReservationLine> missing = new ArrayList<>(lines.size());
         for (ReservationLine line : lines) {
             InventoryItem item = stock.get(line.getBookId());
             if (item == null || item.getQuantity() < line.getQuantity()) {
