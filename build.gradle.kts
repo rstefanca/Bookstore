@@ -37,6 +37,14 @@ dependencyManagement {
     }
 }
 
+springBoot {
+    // META-INF/build-info.properties, shown by /actuator/info. Without the build time, so an unchanged build stays
+    // up to date.
+    buildInfo {
+        excludes.set(setOf("time"))
+    }
+}
+
 // Mockito's agent, attached at JVM start: loading it dynamically is deprecated and will be blocked by later JDKs.
 val mockitoAgent = configurations.create("mockitoAgent")
 
@@ -47,6 +55,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
@@ -55,6 +64,7 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-transformers")
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
     runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")

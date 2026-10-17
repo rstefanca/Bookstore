@@ -83,6 +83,8 @@ no signed-in user.
   `@ResponseStatus` and a message written for API clients, which becomes `detail` (`shared.ProblemDetailsAdvice`).
   Controller-local `@ExceptionHandler`s return `ProblemDetail`. Anything unhandled, plus 401/403 from the security
   filters, goes through `shared.ProblemDetailErrorController`, which shows only the status and path.
+- **Actuator**: only `health`, `info`, `metrics` and `prometheus` are exposed (`management.endpoints.web.exposure`).
+  Health and its probes are public, the rest is ADMIN-only (`SecurityConfiguration`).
 - **Pagination**: list endpoints return Spring Data pages with a fixed order per endpoint; `sort` is ignored;
   size default 20, max 100.
 - **Virtual threads** serve HTTP requests (`shared.ThreadingConfiguration`).

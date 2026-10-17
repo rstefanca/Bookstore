@@ -46,6 +46,28 @@ spring:
           Read-only access to a bookstore catalog: search books by title, author or genre, look up authors and
           genres, and find similar books. Ids returned by one tool can be passed to the others.
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Under /actuator; who may call them is in security.SecurityConfiguration.
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      # Anyone gets the overall status; admins also see each component (database, disk space, ...).
+      show-details: when-authorized
+      roles: ADMIN
+      probes:
+        # /actuator/health/liveness and /readiness, also outside Kubernetes.
+        enabled: true
+      group:
+        readiness:
+          # Don't send traffic while the database is unreachable.
+          include: readinessState, db
+  info:
+    java:
+      enabled: true
+
 bookstore:
   recommendation:
     # all-MiniLM-L6-v2 (384 dimensions), pinned to the Spring AI 2.0.1 release

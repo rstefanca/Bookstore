@@ -130,7 +130,15 @@ class SecurityIntegrationTest {
     void deniesEndpointsWithoutARule() {
         anonymous.get().uri("/api/not-a-thing").exchange().expectStatus().isUnauthorized();
         admin.get().uri("/api/not-a-thing").exchange().expectStatus().isForbidden();
-        admin.get().uri("/actuator").exchange().expectStatus().isForbidden();
+        admin.get().uri("/not-a-thing").exchange().expectStatus().isForbidden();
+    }
+
+    @Test
+    void actuatorBeyondHealthIsForAdminsOnly() {
+        staff.get().uri("/actuator/health").exchange().expectStatus().isOk();
+        staff.get().uri("/actuator/metrics").exchange().expectStatus().isForbidden();
+        staff.get().uri("/actuator/prometheus").exchange().expectStatus().isForbidden();
+        admin.get().uri("/actuator").exchange().expectStatus().isOk();
     }
 
     @Test

@@ -37,6 +37,8 @@ class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/mcp", "/mcp/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // Anyone: health, for load balancers and orchestrators (details only for admins).
+                        .requestMatchers(GET, "/actuator/health", "/actuator/health/**").permitAll()
 
                         // Customers: their cart and orders. Staff (and admins) see all orders.
                         .requestMatchers(GET, "/api/orders/all").hasRole(Role.STAFF.name())
@@ -50,9 +52,10 @@ class SecurityConfiguration {
                         .requestMatchers(POST, "/api/accounts/register").permitAll()
                         // Every signed-in account: its own details and password.
                         .requestMatchers("/api/accounts/me", "/api/accounts/me/**").authenticated()
-                        // Admins: audit log and account management.
+                        // Admins: audit log, account management and the other operational endpoints.
 
                         .requestMatchers("/api/audit/**", "/api/accounts/**").hasRole(Role.ADMIN.name())
+                        .requestMatchers("/actuator", "/actuator/**").hasRole(Role.ADMIN.name())
 
                         .anyRequest().denyAll())
                 .httpBasic(Customizer.withDefaults())

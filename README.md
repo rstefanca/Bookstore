@@ -28,9 +28,9 @@ in the `account` table with BCrypt password hashes. Customers are accounts too: 
 
 | Who | May |
 |-----|-----|
-| Anyone | Browse books, authors, genres, prices and recommendations; use the read-only MCP tools |
+| Anyone | Browse books, authors, genres, prices and recommendations; use the read-only MCP tools; check health |
 | `STAFF` | Also create, change and delete books, authors and genres; manage prices and inventory; read price history |
-| `ADMIN` | Everything staff may, plus read the audit log and manage accounts |
+| `ADMIN` | Everything staff may, plus read the audit log, manage accounts and use the other actuator endpoints |
 | `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders; signs up with `POST /api/accounts/register` |
 
 All rules are in `security.SecurityConfiguration`, and any path without a rule is denied, so new endpoints are
@@ -240,6 +240,21 @@ through `shared.ChangeLog`, which defers the line until the transaction commits,
 logged. Levels can be set per package as usual, e.g. `logging.level.cz.codingmonkey.bookstore.recommendation=DEBUG`
 also shows events the recommendation module ignored as outdated.
 
+### Operations (actuator)
+
+Spring Boot Actuator serves operational endpoints under `/actuator`. Only these are exposed:
+
+| Endpoint | Who | What |
+|----------|-----|------|
+| `/actuator/health` | anyone | `{"status": "UP"}`; admins also see each component (`db`, `diskSpace`, ...) |
+| `/actuator/health/liveness`, `/actuator/health/readiness` | anyone | Probes for orchestrators and load balancers; readiness also needs the database |
+| `/actuator/info` | admin | Build (name, version from `build-info.properties`) and Java runtime |
+| `/actuator/metrics` | admin | Micrometer metrics, e.g. `/actuator/metrics/http.server.requests` |
+| `/actuator/prometheus` | admin | The same metrics in Prometheus format, for scraping with an admin's HTTP Basic credentials |
+
+Other endpoints (`env`, `beans`, `heapdump`, ...) aren't exposed, and the rules are in `security.SecurityConfiguration`
+like every other path. The build info leaves out the build time, so Gradle can skip an unchanged build.
+
 ### Caching
 
 Books and authors by id (`GET /api/books/{id}`, `GET /api/authors/{id}` and the `get_book`/`get_author` MCP tools)
@@ -401,6 +416,8 @@ user/pass `bookstore`). It needs the pgvector extension installed (e.g. the `pgv
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
 | GET    | /api/orders/all            | All customers' orders (staff) |
 | GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
+| GET    | /actuator/health           | Health status, plus `/liveness` and `/readiness` probes (anyone; components for admins) |
+| GET    | /actuator/info, /actuator/metrics, /actuator/prometheus | Build info, metrics and the Prometheus scrape (admin); see Operations |
 
     curl -u admin:<password> -X POST localhost:8080/api/authors -H 'Content-Type: application/json' \
       -d '{"name":"Frank Herbert","favoriteGenreIds":[21]}'
