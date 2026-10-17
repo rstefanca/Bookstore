@@ -12,7 +12,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Security | `cz.codingmonkey.bookstore.security` | none | Staff accounts and the access rules for every endpoint |
 | Shared | `cz.codingmonkey.bookstore.shared` | `LongId`, `LongIdType` | Technical building blocks (id persistence, caching setup), no domain logic |
 | Book Catalog | `cz.codingmonkey.bookstore.bookcatalog` | `BookId`, `AuthorId`, `GenreId`, `BookDetails`, `BookSearch`; `BookCreatedEvent`, `BookUpdatedEvent`, `BookDeletedEvent`, `AuthorCreatedEvent` events; `BookCatalog`; `BookDeletionPolicy` SPI | Books, authors and genres (implementation in `bookcatalog.internal`) |
-| Inventory | `cz.codingmonkey.bookstore.inventory` | `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
+| Inventory | `cz.codingmonkey.bookstore.inventory` | `Stock`; `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
 | Pricing | `cz.codingmonkey.bookstore.pricing` | `Money`, `Prices`; `PriceChangedEvent` | List price per book in the store currency (implementation in `pricing.internal`) |
 | Storefront | `cz.codingmonkey.bookstore.storefront` | none | Customer-facing book reads: catalog details plus price |
 | Ordering | `cz.codingmonkey.bookstore.ordering` | `OrderId` | Carts, orders and the order process; blocks deleting books with orders (implementation in `ordering.internal`) |
@@ -176,12 +176,17 @@ queues that work by itself. On shutdown the app waits up to 30 seconds for runni
 
 ### Orders
 
-Customers fill a cart (`/api/cart`) and check out. Checkout fixes titles and prices, creates the order
-(`PENDING`) and answers `202 Accepted` right away; the rest happens in the background:
+Customers fill a cart (`/api/cart`) and check out. Checkout fixes titles and prices, checks there is enough stock
+(else 409 "Not enough stock: Cosmos (0 left). ...", cart kept), creates the order (`PENDING`) and answers
+`202 Accepted` right away; the rest happens in the background:
 
     PENDING --stock reserved--> AWAITING_PAYMENT --paid--> CONFIRMED --customer cancels--> CANCELLED
        |                              |
        +--no stock--> REJECTED        +--payment failed--> REJECTED (stock put back)
+
+A rejected order's books go back into the customer's cart (added to what is there, at most 20 copies each), so
+they can fix it and check out again. Stock can still run out between the check and the reservation, which is the
+"no stock" rejection above. Design: `docs/design/checkout-stock.md`.
 
 The ordering module's `OrderProcess` drives it with events. Inventory reserves all lines or none
 (`StockReservationRequested` -> `StockReserved` / `StockReservationFailed`); the fake payment module charges
@@ -483,7 +488,7 @@ summary.
 | PUT    | /api/cart/items/{bookId}   | Set quantity, body `{"quantity": 2}` (0 removes; max 20); 409 if not for sale (customer) |
 | DELETE | /api/cart/items/{bookId}   | Remove a book (customer) |
 | DELETE | /api/cart                  | Empty the cart (customer) |
-| POST   | /api/cart/checkout         | Place the order: 202 with the `PENDING` order and its `Location`; 409 for an empty cart or books no longer for sale (customer) |
+| POST   | /api/cart/checkout         | Place the order: 202 with the `PENDING` order and its `Location`; 409 for an empty cart, books no longer for sale, or not enough stock (customer) |
 | GET    | /api/orders                | Your orders, newest first (customer) |
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |

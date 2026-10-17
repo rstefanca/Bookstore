@@ -34,7 +34,9 @@ the two modules would depend on each other, which Modulith rejects.)
   Stock is *not* checked here, only at checkout.
 - `POST /api/cart/checkout`: snapshots titles and prices, creates the order (`PENDING`), empties the cart,
   answers `202 Accepted` with the order and `Location: /api/orders/{id}`. Empty cart or a book no longer for
-  sale → `409` with the reason, cart unchanged.
+  sale → `409` with the reason, cart unchanged. Since 2026-10-17 checkout also reads stock (`inventory.Stock`)
+  and answers `409` naming each short book and how many are left, cart unchanged
+  (`docs/design/checkout-stock.md`).
 
 ## Orders (`ordering`)
 
@@ -63,10 +65,11 @@ commit, tracked in the event registry, retried after a restart):
 2. `inventory` reserves **all lines or none** and publishes `StockReserved` or
    `StockReservationFailed(reason, missing book ids)`.
 3. On `StockReserved`: order → `AWAITING_PAYMENT`, publish `payment.PaymentRequested(reference = order id,
-   amount)`. On `StockReservationFailed`: order → `REJECTED` ("Not enough stock: Dune").
+   amount)`. On `StockReservationFailed`: order → `REJECTED` ("Not enough stock: Dune"), and its lines go back
+   into the customer's cart.
 4. `payment` charges (fake) and publishes `PaymentSucceeded` or `PaymentFailed(reason)`.
-5. On `PaymentSucceeded`: order → `CONFIRMED`. On `PaymentFailed`: order → `REJECTED`, publish
-   `StockReleaseRequested` (undo step 2).
+5. On `PaymentSucceeded`: order → `CONFIRMED`. On `PaymentFailed`: order → `REJECTED`, its lines go back into
+   the cart, publish `StockReleaseRequested` (undo step 2).
 6. Cancel: order → `CANCELLED`, publish `StockReleaseRequested` and `RefundRequested`.
 
 Every event that the order process publishes also carries the customer as `actor`, so stock changes in the
