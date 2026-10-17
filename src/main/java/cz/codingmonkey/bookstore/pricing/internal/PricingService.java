@@ -156,7 +156,7 @@ public class PricingService implements Prices {
         return PriceResponse.from(bookPrice);
     }
 
-    private void handlePriceChange(BookId bookId, Money price, Money oldPrice) {
+    private void handlePriceChange(BookId bookId, Money price, @Nullable Money oldPrice) {
         Instant now = Instant.now();
         closeCurrentPeriod(bookId, now);
         history.save(new PricePeriod(bookId, price, now));
