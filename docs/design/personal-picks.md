@@ -107,9 +107,11 @@ List<BookId> topRated(int offset, int count);
 
 ### Implementation
 
-`ratedAtLeast` and `byRating` are criteria subqueries correlated with the catalog's book id:
-`round(avg(stars), 1) >= :min` inside an `EXISTS`, and the score expression above as a scalar subquery, ordered
-descending with nulls last (JPA 3.2 `Nulls.LAST`). Criteria subqueries need an entity, so `rating.internal` gets a
+`ratedAtLeast` and `byRating` are criteria subqueries correlated with the catalog's book id. The filter is an
+`EXISTS` with `HAVING 20 × sum(stars) >= k × count(*)`, where `k = 2 × ceil(10 × minRating) − 1`: in integers, this
+is exactly "average rounded half up to one decimal ≥ minRating", which `round(avg(...))` on a floating-point average
+gets wrong at the boundary (4.05). The order is the score expression above as a scalar subquery, computed in floating
+point, descending with nulls last (JPA 3.2 `Nulls.LAST`). Criteria subqueries need an entity, so `rating.internal` gets a
 read-only `@Immutable` entity on `book_rating` (composite id `book_id`, `customer`; `BookId` mapped with
 `BookIdType`). Writes stay in `BookRatings` with `JdbcClient`. `ratingsBy`, `topRated` and the store-wide mean are
 plain SQL in `BookRatings`.
