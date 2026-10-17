@@ -1,12 +1,14 @@
 package cz.codingmonkey.bookstore.recommendation;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -144,5 +146,9 @@ class BookEmbeddings implements Recommendations {
         return IntStream.range(0, embedding.length)
                 .mapToObj(i -> Float.toString(embedding[i]))
                 .collect(Collectors.joining(",", "[", "]"));
+    }
+
+    private static List<String> toList(Array array) throws SQLException {
+        return Arrays.asList((String[]) array.getArray());
     }
 }

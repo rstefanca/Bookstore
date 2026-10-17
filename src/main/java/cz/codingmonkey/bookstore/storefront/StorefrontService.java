@@ -11,6 +11,14 @@ import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import cz.codingmonkey.bookstore.recommendation.Recommendation;
 import cz.codingmonkey.bookstore.recommendation.Recommendations;
+import jakarta.annotation.Nullable;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.VirtualThreadTaskExecutor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -19,11 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.core.task.TaskExecutor;
-import org.springframework.core.task.VirtualThreadTaskExecutor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
 
 /**
  * Combines catalog details, prices, rating summaries and recommendations. Not transactional itself: each module reads
@@ -43,7 +46,9 @@ class StorefrontService {
     private final Ratings ratings;
     private final Recommendations recommendations;
 
-    /** Runs independent queries side by side, each on its own virtual thread. */
+    /**
+     * Runs independent queries side by side, each on its own virtual thread.
+     */
     private final TaskExecutor queries = new VirtualThreadTaskExecutor("storefront-query-");
 
     StorefrontService(BookCatalog catalog, Prices prices, Ratings ratings, Recommendations recommendations) {
@@ -148,12 +153,16 @@ class StorefrontService {
                 .toList();
     }
 
-    /** Limits a catalog search to the given books. */
+    /**
+     * Limits a catalog search to the given books.
+     */
     private static BookCondition among(Collection<BookId> ids) {
         return (bookId, query, cb) -> bookId.in(ids);
     }
 
-    /** Waits for the result, rethrowing the query's own exception rather than a wrapper. */
+    /**
+     * Waits for the result, rethrowing the query's own exception rather than a wrapper.
+     */
     private static <T> T join(CompletableFuture<T> future) {
         try {
             return future.join();
