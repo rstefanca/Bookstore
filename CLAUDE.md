@@ -44,6 +44,10 @@ Dependencies only point one way. Patterns used to keep it that way:
   can veto deletes without depending on them. Restock/set-price/rate/checkout lock the book row `FOR KEY SHARE`
   (`BookCatalog.existsAndLockAgainstDeletion`; blocks the delete, not edits of the book); delete takes
   `FOR UPDATE` before consulting policies (`RestockDeleteRaceTest`).
+- **Conditions and orders handed to the catalog**: `bookcatalog.BookCondition` and `BookOrder` (set on a `BookSearch`
+  with `matching`/`ordered`) let pricing and rating give the catalog a filter or sort for its own book query, so
+  storefront can offer price ranges, `minRating` and `orderBy=rating` with correct paging and totals, and catalog
+  still doesn't know those modules.
 - **Request → result events**: `inventory` and `payment` expose `*Requested` events and publish result events
   (`StockReserved`/`StockReservationFailed`, `PaymentSucceeded`/`PaymentFailed`, ...). They don't know about
   orders; `ordering` depends on them, not the reverse. See `docs/design/orders.md` for the order state machine

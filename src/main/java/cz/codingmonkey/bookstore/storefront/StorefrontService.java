@@ -8,11 +8,13 @@ import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
 import org.springframework.data.domain.Page;
@@ -61,10 +63,21 @@ class StorefrontService {
      * A price range becomes a condition from pricing that the catalog applies in its own query (an {@code EXISTS}
      * subquery on prices), so paging and totals stay correct and matching ids never leave the database. Books without
      * a price never match a price range.
+     * <p>
+     * A minimum rating becomes a condition from the rating module and the rating order an order from it, applied the
+     * same way; both combine with the price range and the other filters. The caller prepares the page for the
+     * ordering ({@link BookOrdering#pageOf}).
      */
-    Page<StorefrontBook> findBooks(BookSearch search, PriceRange priceRange, Pageable page) {
+    Page<StorefrontBook> findBooks(BookSearch search, PriceRange priceRange, @Nullable BigDecimal minRating,
+            BookOrdering ordering, Pageable page) {
         if (!priceRange.isAny()) {
             search = search.matching(prices.pricedBetween(priceRange.min(), priceRange.max()));
+        }
+        if (minRating != null) {
+            search = search.matching(ratings.ratedAtLeast(minRating));
+        }
+        if (ordering == BookOrdering.RATING) {
+            search = search.ordered(ratings.byRating());
         }
         Page<BookDetails> books = catalog.findBooks(search, page);
         List<BookId> ids = books.map(BookDetails::id).getContent();

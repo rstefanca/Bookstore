@@ -151,8 +151,22 @@ Every storefront book carries a `rating` summary, never null:
 "rating": {"average": 4.3, "count": 12, "stars": {"1": 0, "2": 1, "3": 0, "4": 3, "5": 8}}
 ```
 
-An unrated book has `"average": null`, `"count": 0` and all star counts 0. There is no sorting or filtering by
-rating.
+An unrated book has `"average": null`, `"count": 0` and all star counts 0.
+
+The list can be filtered and sorted by rating:
+
+- `minRating` (1 to 5, e.g. `4` or `4.5`) keeps books whose displayed average is at least that. The comparison uses
+  the average as shown (one decimal, rounded half up), so a book shown as 4.0 matches `minRating=4` even if its exact
+  average is 3.95. Unrated books never match. A value outside 1 to 5 is a 400.
+- `orderBy` is `title` (default) or `rating`, in any case; anything else is a 400. `sort` stays ignored. The rating
+  order ranks a book by a damped average, `(C × m + Σstars) / (C + n)` with `C = 5`, `n` the book's number of ratings
+  and `m` the mean of all ratings in the store. A few ratings therefore count for less than many (one 5-star rating
+  ranks below many 4.8-star ones). Best first; unrated books last; ties by title, then id. With no ratings at all,
+  the order is the title order.
+
+Both combine with the other filters (AND). The storefront gives the catalog a condition and an order from the rating
+module (`Ratings.ratedAtLeast`, `Ratings.byRating`, applied with `BookSearch.matching`/`ordered`), as it does for
+prices, so paging and totals stay right.
 
 For a single book, the catalog, price and rating queries run in parallel on virtual threads; none needs another's
 result. This uses `CompletableFuture`; structured concurrency (`StructuredTaskScope`) would fit better but is still
@@ -342,7 +356,7 @@ module contributes its own tools with `@McpTool`, and all of them are read-only 
 
 | Tool | Module | What it does |
 |------|--------|--------------|
-| `search_books` | storefront | Books with prices and ratings; filter by title, author name, `authorId`, `genreId`, `minPrice`/`maxPrice` (AND, price bounds inclusive); sorted by title; `limit` 1-50, default 20 |
+| `search_books` | storefront | Books with prices and ratings; filter by title, author name, `authorId`, `genreId`, `minPrice`/`maxPrice` (AND, price bounds inclusive), `minRating` 1-5; sorted by title unless `orderBy` is `rating` (best rated first, unrated last); `limit` 1-50, default 20 |
 | `get_book` | storefront | One book by id, with its price and rating |
 | `list_authors` | catalog | Authors sorted by name, optional name filter, `limit` 1-50 |
 | `get_author` | catalog | One author by id, with favorite genres |
@@ -449,7 +463,7 @@ summary.
 
 | Method | Path                       | Description                 |
 |--------|----------------------------|-----------------------------|
-| GET    | /api/books?title=...&author=...&authorId=...&genreId=...&minPrice=...&maxPrice=... | List books with prices and ratings, sorted by title; optional filters combine: title (contains), author name (contains, any co-author), author id, genre id, price range (inclusive, EUR; leaves out books not for sale) |
+| GET    | /api/books?title=...&author=...&authorId=...&genreId=...&minPrice=...&maxPrice=...&minRating=...&orderBy=... | List books with prices and ratings, sorted by title (default) or by rating (`orderBy=rating`: damped average, best first, unrated last); optional filters combine: title (contains), author name (contains, any co-author), author id, genre id, price range (inclusive, EUR; leaves out books not for sale), `minRating` 1-5 (displayed average at least this; unrated books never match); 400 for a `minRating` outside 1-5 or another `orderBy` |
 | GET    | /api/books/{id}            | Get one book with its price and rating |
 | POST   | /api/books                 | Create a book               |
 | PUT    | /api/books/{id}            | Update a book               |

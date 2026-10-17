@@ -16,6 +16,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails.AuthorSummary;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.bookcatalog.BookOrder;
 import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
 import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
@@ -33,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -124,7 +126,7 @@ class StorefrontModuleTests {
                 new PageImpl<>(List.of(DUNE_DETAILS, neuromancer), Pageable.ofSize(2), 7));
         given(prices.pricesOf(List.of(DUNE, new BookId(2)))).willReturn(Map.of(DUNE, Money.of("10", "EUR")));
 
-        var page = storefront.findBooks(search, PriceRange.ANY, Pageable.ofSize(2));
+        var page = storefront.findBooks(search, PriceRange.ANY, null, BookOrdering.TITLE, Pageable.ofSize(2));
 
         assertThat(page.getContent()).extracting(StorefrontBook::title, StorefrontBook::price)
                 .containsExactly(
@@ -141,7 +143,7 @@ class StorefrontModuleTests {
                 .willReturn(new PageImpl<>(List.of(DUNE_DETAILS), Pageable.ofSize(5), 1));
         given(ratings.summariesOf(List.of(DUNE))).willReturn(Map.of(DUNE, RatingSummary.of(Map.of(5, 2))));
 
-        var page = storefront.findBooks(search, PriceRange.ANY, Pageable.ofSize(5));
+        var page = storefront.findBooks(search, PriceRange.ANY, null, BookOrdering.TITLE, Pageable.ofSize(5));
 
         assertThat(page.getContent()).singleElement().satisfies(book -> {
             assertThat(book.rating().average()).isEqualByComparingTo("5.0");
@@ -159,9 +161,35 @@ class StorefrontModuleTests {
         given(prices.pricesOf(List.of(DUNE))).willReturn(Map.of(DUNE, Money.of("14.99", "EUR")));
 
         var page = storefront.findBooks(search, new PriceRange(new BigDecimal("10"), new BigDecimal("15")),
-                Pageable.ofSize(5));
+                null, BookOrdering.TITLE, Pageable.ofSize(5));
 
         assertThat(page.getContent()).extracting(StorefrontBook::price).containsExactly(Money.of("14.99", "EUR"));
+    }
+
+    @Test
+    void limitsAndOrdersTheSearchByRating() {
+        var search = new BookSearch(null, null, null, null);
+        BookCondition rated = (bookId, query, cb) -> cb.conjunction();
+        BookOrder best = (bookId, query, cb) -> cb.asc(cb.literal(1));
+        given(ratings.ratedAtLeast(new BigDecimal("4"))).willReturn(rated);
+        given(ratings.byRating()).willReturn(best);
+        var page = BookOrdering.RATING.pageOf(Pageable.ofSize(5));
+        given(catalog.findBooks(search.matching(rated).ordered(best), page))
+                .willReturn(new PageImpl<>(List.of(DUNE_DETAILS), page, 1));
+
+        var found = storefront.findBooks(search, PriceRange.ANY, new BigDecimal("4"), BookOrdering.RATING, page);
+
+        assertThat(found.getContent()).extracting(StorefrontBook::title).containsExactly("Dune");
+        assertThat(page.getSort().isSorted()).isFalse();
+        assertThat(BookOrdering.TITLE.pageOf(Pageable.ofSize(5)).getSort()).isEqualTo(Sort.by("title"));
+    }
+
+    @Test
+    void parsesOrderingsIgnoringCase() {
+        assertThat(BookOrdering.parse("title")).isEqualTo(BookOrdering.TITLE);
+        assertThat(BookOrdering.parse("Rating")).isEqualTo(BookOrdering.RATING);
+        assertThatThrownBy(() -> BookOrdering.parse("price")).isInstanceOf(InvalidOrderingException.class)
+                .hasMessage("orderBy must be title or rating, was price");
     }
 
     @Test
