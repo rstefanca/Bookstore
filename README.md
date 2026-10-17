@@ -195,6 +195,33 @@ order (books by title, authors and genres by name, inventory by book id, audit n
 is ignored. `/api/books/{id}/similar` is a top-N list with `limit`, not paged, and the MCP tools keep their own
 limits.
 
+### Errors
+
+Every error response is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem detail with content type
+`application/problem+json`:
+
+    GET /api/books/999999
+    404 {"title": "Not Found", "status": 404, "detail": "Book 999999 not found", "instance": "/api/books/999999"}
+
+`type` is left out (it is `about:blank`, so `title` is just the HTTP reason phrase). `detail` explains what went
+wrong in words meant for the caller. Invalid request bodies and parameters also list each problem under `errors`:
+
+    POST /api/books {"title": " ", "authorIds": [], ...}
+    400 {"title": "Bad Request", "status": 400, "detail": "Invalid request content.", "instance": "/api/books",
+         "errors": [{"field": "title", "message": "must not be blank"}, {"field": "authorIds", "message": "must not be empty"}]}
+
+Where they come from (all in `shared`, except the per-controller handlers):
+
+- Module exceptions declare their status with `@ResponseStatus`, and their message becomes `detail`
+  (`shared.ProblemDetailsAdvice`), so those messages are written for API clients.
+- Spring MVC's own errors (malformed JSON, a wrong parameter type, an unsupported method, `ResponseStatusException`)
+  go through Spring's `ResponseEntityExceptionHandler`, which the same advice extends.
+- Conflicts that only make sense in one controller, such as a concurrent change, are handled there and return a
+  `ProblemDetail` too.
+- Anything that reaches the servlet error page, meaning 401/403 from the security filters and unexpected exceptions
+  (500), is rendered by `shared.ProblemDetailErrorController` with only the status and path. It never includes the
+  exception's message, which could expose internals.
+
 ### Logging
 
 Logging uses Log4j 2 (2.26.1, the latest stable release; Log4j 3 is still in beta) through

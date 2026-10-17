@@ -79,6 +79,10 @@ no signed-in user.
   table in README.
 - **Security**: all rules live in `security.SecurityConfiguration`; any unlisted path is **denied**, so new
   endpoints must be added there. HTTP Basic, stateless, CSRF off. Roles: `CUSTOMER`, `STAFF`, `ADMIN`.
+- **Errors**: every error is an RFC 9457 `ProblemDetail` (`application/problem+json`). A new exception gets
+  `@ResponseStatus` and a message written for API clients, which becomes `detail` (`shared.ProblemDetailsAdvice`).
+  Controller-local `@ExceptionHandler`s return `ProblemDetail`. Anything unhandled, plus 401/403 from the security
+  filters, goes through `shared.ProblemDetailErrorController`, which shows only the status and path.
 - **Pagination**: list endpoints return Spring Data pages with a fixed order per endpoint; `sort` is ignored;
   size default 20, max 100.
 - **Virtual threads** serve HTTP requests (`shared.ThreadingConfiguration`).
