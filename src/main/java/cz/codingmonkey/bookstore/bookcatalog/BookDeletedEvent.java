@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.bookcatalog;
 
+import cz.codingmonkey.bookstore.shared.Auditable;
 import org.jmolecules.event.annotation.DomainEvent;
 
 /**
@@ -9,5 +10,20 @@ import org.jmolecules.event.annotation.DomainEvent;
  *              work)
  */
 @DomainEvent
-public record BookDeletedEvent(BookId bookId, String isbn, String actor) {
+public record BookDeletedEvent(BookId bookId, String isbn, String actor) implements Auditable {
+
+    @Override
+    public String auditAction() {
+        return "BOOK_DELETED";
+    }
+
+    @Override
+    public BookId auditSubject() {
+        return bookId;
+    }
+
+    @Override
+    public String auditDescription() {
+        return "Deleted book with ISBN %s".formatted(isbn);
+    }
 }

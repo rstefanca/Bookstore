@@ -17,7 +17,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Storefront | `cz.codingmonkey.bookstore.storefront` | none | Customer-facing book reads: catalog details plus price |
 | Ordering | `cz.codingmonkey.bookstore.ordering` | `OrderId` | Carts, orders and the order process (implementation in `ordering.internal`) |
 | Payment | `cz.codingmonkey.bookstore.payment` | `PaymentReference`; request/result events | Fake payment provider: charges, declines, refunds |
-| Audit | `cz.codingmonkey.bookstore.audit` | none | Listens to book, author, inventory, price and order events and records an audit trail |
+| Audit | `cz.codingmonkey.bookstore.audit` | none | Records an audit trail of every event that implements `shared.Auditable` (book, author, stock, price and order events) |
 | Recommendations | `cz.codingmonkey.bookstore.recommendation` | none | Similar-book suggestions from text embeddings stored with pgvector |
 
 ### Security
@@ -44,6 +44,10 @@ password, a random one is generated and logged once (WARN). Admins manage accoun
 every account has a first and last name (accounts created before names existed have
 none until set), and passwords need 12-72 bytes (BCrypt ignores anything past 72). You can't delete your own account, and the last admin
 can't be deleted, even by two admins deleting each other at the same moment (admin rows are locked while checking).
+
+Audited events implement `shared.Auditable` and describe themselves: the audit action name, the subject (a book,
+author or order id) and the description text. The audit module has a single listener for `Auditable`, so a new
+audited event only needs to implement it and have its action added to `AuditEntry.Action`.
 
 Audit entries record who made each change (`actor`: the username). The audited events carry the actor, taken
 from the signed-in user when the change is made (`shared.CurrentUser`), because the audit listeners run in the
@@ -263,18 +267,17 @@ bound from requests do so through their static `of(String)` factory, so malforme
 variables and query parameters return 400. `AuditEntryId` and `PricePeriodId` are only created from
 database-generated keys and don't check.
 
-Dependencies only go one way: inventory and audit depend on book, audit also depends on inventory, pricing and ordering.
+Dependencies only go one way: inventory and audit depend on book, audit also depends on ordering (for
+`OrderId`). Audit receives every event that implements `shared.Auditable`, so it doesn't depend on the modules that
+publish them.
 
     inventory ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (restock checks the book exists)
     inventory ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books in stock)
     inventory ◀──BookDeletedEvent──── book                              (removes the empty stock record)
-    audit     ◀──BookCreatedEvent/BookDeletedEvent/AuthorCreatedEvent── book
-    audit     ◀──StockAdjustedEvent── inventory
     recommendation ◀──BookCreatedEvent/BookUpdatedEvent/BookDeletedEvent── book
     pricing   ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (setting a price checks the book exists)
     pricing   ◀──BookDeletedEvent── book                             (removes the price)
-    audit     ◀──PriceChangedEvent── pricing
-    audit     ◀──OrderProgressedEvent── ordering
+    audit     ◀──Auditable events── book, inventory, pricing, ordering
     storefront ──BookCatalog.findBook/findBooks──▶ book
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
 

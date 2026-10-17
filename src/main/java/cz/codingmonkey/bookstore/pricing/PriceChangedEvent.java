@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.pricing;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.shared.Auditable;
 import org.jmolecules.event.annotation.DomainEvent;
 
 /**
@@ -12,5 +13,26 @@ import org.jmolecules.event.annotation.DomainEvent;
  *                 book; {@code null} without a signed-in user
  */
 @DomainEvent
-public record PriceChangedEvent(BookId bookId, Money oldPrice, Money newPrice, String actor) {
+public record PriceChangedEvent(BookId bookId, Money oldPrice, Money newPrice, String actor) implements Auditable {
+
+    @Override
+    public String auditAction() {
+        return "PRICE_CHANGED";
+    }
+
+    @Override
+    public BookId auditSubject() {
+        return bookId;
+    }
+
+    @Override
+    public String auditDescription() {
+        if (oldPrice == null) {
+            return "Price set to %s".formatted(newPrice);
+        }
+        if (newPrice == null) {
+            return "Price removed (was %s); no longer for sale".formatted(oldPrice);
+        }
+        return "Price changed from %s to %s".formatted(oldPrice, newPrice);
+    }
 }

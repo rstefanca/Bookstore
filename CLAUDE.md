@@ -60,8 +60,9 @@ republished on restart. Consequently listeners must tolerate **duplicate and out
 - the order process checks the order's current state and ignores events that don't fit; reservations and
   payments are keyed by order id so repeated requests are idempotent.
 
-Audited events carry an `actor` (username) captured at publish time via `shared.CurrentUser`, because listeners
-run with no signed-in user. New events that should be attributed must carry it too.
+Audited events implement `shared.Auditable` (action name, subject id, description, `actor`); `audit.AuditListener`
+has one listener for that interface, and a new action also needs a value in `AuditEntry.Action`. The `actor`
+(username) is captured at publish time via `shared.CurrentUser`, because listeners run with no signed-in user.
 
 ### Cross-cutting conventions
 

@@ -64,7 +64,8 @@ refund request publishes it again).
 - `AuditEntry.Action` gets `ORDER_PLACED`, `ORDER_STOCK_RESERVED`, `ORDER_STOCK_MISSING`, `ORDER_PAYMENT_CHARGED`,
   `ORDER_PAYMENT_DECLINED`, `ORDER_CONFIRMED`, `ORDER_REJECTED`, `ORDER_CANCELLED`, `ORDER_STOCK_RELEASED`,
   `ORDER_PAYMENT_REFUNDED` (`"ORDER_" + step`).
-- `AuditListener.on(OrderProgressedEvent)`: records the entry; description = the step's `detail`; actor = `actor`.
+- `AuditListener.on(Auditable)` (`OrderProgressedEvent` implements `shared.Auditable`): records the entry;
+  description = the step's `detail`; actor = `actor`.
 - Each step happens once per order, so it is recorded once: `V22__audit_order_step_once.sql` adds a unique index on
   `(order_id, action)`, and the listener skips a step that is already there (an event can be delivered again after a
   crash). The log line for an order step has only the action and order id (no username, no titles).

@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.ordering;
 
+import cz.codingmonkey.bookstore.shared.Auditable;
 import java.time.Instant;
 import org.jmolecules.event.annotation.DomainEvent;
 
@@ -13,6 +14,27 @@ import org.jmolecules.event.annotation.DomainEvent;
  * @param occurredAt when the step happened; later than the order's previous steps, even ones published together
  */
 @DomainEvent
-public record OrderProgressedEvent(OrderId orderId, OrderStep step, String detail, String actor,
-        Instant occurredAt) {
+public record OrderProgressedEvent(
+        OrderId orderId,
+        OrderStep step,
+        String detail,
+        String actor,
+        Instant occurredAt
+) implements Auditable {
+
+    /** {@code "ORDER_"} + the step, e.g. {@code "ORDER_PAYMENT_CHARGED"}. */
+    @Override
+    public String auditAction() {
+        return "ORDER_" + step.name();
+    }
+
+    @Override
+    public OrderId auditSubject() {
+        return orderId;
+    }
+
+    @Override
+    public String auditDescription() {
+        return detail;
+    }
 }

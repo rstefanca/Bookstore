@@ -6,6 +6,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookIdType;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.ordering.OrderIdType;
+import cz.codingmonkey.bookstore.shared.LongId;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -74,18 +75,17 @@ class AuditEntry {
         this.occurredAt = occurredAt;
     }
 
-    static AuditEntry forBook(Action action, BookId bookId, String actor, String description) {
-        return new AuditEntry(action, bookId, null, null, actor, description, Instant.now());
-    }
-
-    static AuditEntry forAuthor(Action action, AuthorId authorId, String actor, String description) {
-        return new AuditEntry(action, null, authorId, null, actor, description, Instant.now());
-    }
-
-    /** @param occurredAt when the step happened (steps are recorded in parallel, so not in order) */
-    static AuditEntry forOrder(Action action, OrderId orderId, String actor, String description,
-            Instant occurredAt) {
-        return new AuditEntry(action, null, null, orderId, actor, description, occurredAt);
+    /**
+     * @param subject    the book, author or order id the entry is about
+     * @param occurredAt when the change happened (order steps are recorded in parallel, so not in order)
+     */
+    static AuditEntry of(Action action, LongId subject, String actor, String description, Instant occurredAt) {
+        return switch (subject) {
+            case BookId bookId -> new AuditEntry(action, bookId, null, null, actor, description, occurredAt);
+            case AuthorId authorId -> new AuditEntry(action, null, authorId, null, actor, description, occurredAt);
+            case OrderId orderId -> new AuditEntry(action, null, null, orderId, actor, description, occurredAt);
+            default -> throw new IllegalArgumentException("Cannot audit changes to " + subject);
+        };
     }
 
     AuditEntryId getId() { return id; }

@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.bookcatalog;
 
+import cz.codingmonkey.bookstore.shared.Auditable;
 import java.util.List;
 import org.jmolecules.event.annotation.DomainEvent;
 
@@ -14,11 +15,34 @@ import org.jmolecules.event.annotation.DomainEvent;
  *                    background work)
  */
 @DomainEvent
-public record BookCreatedEvent(BookId bookId, String title, List<String> authors, List<String> genres, String isbn,
-        String description, long revision, String actor) {
+public record BookCreatedEvent(
+        BookId bookId,
+        String title,
+        List<String> authors,
+        List<String> genres,
+        String isbn,
+        String description,
+        long revision,
+        String actor
+) implements Auditable {
 
     public BookCreatedEvent {
         authors = List.copyOf(authors);
         genres = List.copyOf(genres);
+    }
+
+    @Override
+    public String auditAction() {
+        return "BOOK_CREATED";
+    }
+
+    @Override
+    public BookId auditSubject() {
+        return bookId;
+    }
+
+    @Override
+    public String auditDescription() {
+        return "Created \"%s\" by %s (ISBN %s)".formatted(title, String.join(", ", authors), isbn);
     }
 }
