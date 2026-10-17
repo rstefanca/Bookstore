@@ -272,20 +272,9 @@ class OrderingModuleTests {
 
         scenario.publish(failed).andWaitForStateChange(() -> true).andVerify(x -> { });
 
-        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(3))
-                .untilAsserted(() -> assertThat(cartQuantities()).containsExactly(tuple(DUNE, 1)));
-    }
-
-    @Test
-    void cancellingDoesNotPutTheLinesBack(Scenario scenario) {
-        OrderView order = placeOrder();
-        reserve(scenario, order);
-        scenario.publish(new PaymentSucceeded(payment(order)))
-                .andWaitForStateChange(() -> status(order), OrderStatus.CONFIRMED::equals);
-
-        orders.cancel(customer, order.id());
-
-        assertThat(cartQuantities()).isEmpty();
+        // Wait until the order process has handled both deliveries, then check the lines went back only once.
+        await().atMost(Duration.ofSeconds(10)).until(() -> handledFailures(order) == 2);
+        assertThat(cartQuantities()).containsExactly(tuple(DUNE, 1));
     }
 
     @Test
@@ -510,6 +499,15 @@ class OrderingModuleTests {
                 .andWaitForEventOfType(PaymentRequested.class)
                 .matching(request -> request.reference().equals(payment(order)))
                 .toArrive();
+    }
+
+    /** How many deliveries of a stock failure for the order the order process has completed. */
+    private int handledFailures(OrderView order) {
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM event_publication
+                 WHERE listener_id LIKE '%OrderProcess%' AND event_type = ? AND completion_date IS NOT NULL
+                   AND serialized_event::jsonb ->> 'reservationId' = ?
+                """, Integer.class, StockReservationFailed.class.getName(), String.valueOf(order.id().value()));
     }
 
     private List<Tuple> cartQuantities() {

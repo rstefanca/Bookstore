@@ -93,4 +93,8 @@ class Cart {
         }
         return -1;
     }
+
+    public int countLines() {
+        return lines.size();
+    }
 }

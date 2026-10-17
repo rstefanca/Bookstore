@@ -111,13 +111,15 @@ Flyway `V18__create_cart_and_orders.sql`, `V19__create_stock_reservation.sql`, `
 
 - **Ordering module test** (only `ordering` running; inventory and payment replies published by the test with
   Modulith `Scenario`): happy path, no stock, payment declined (stock release requested), cancel (release +
-  refund), duplicate and late events ignored, wrong-state cancel `409`.
+  refund), duplicate and late events ignored, wrong-state cancel `409`; checkout refuses short stock (cart kept);
+  rejected orders (stock or payment) put their lines back into the cart, once.
 - **Inventory module test**: all-or-nothing reservation, release, idempotency, race for the last copy.
 - **Payment module test**: charge, decline over limit, refund, idempotency.
 - **Cart tests** (HTTP): add/change/remove, not-for-sale books, checkout snapshot, empty cart.
 - **End to end** (HTTP, all modules): customer signs up, fills cart, checks out, order becomes `CONFIRMED`,
   stock goes down; cancel → stock back, payment `REFUNDED`; order over 100 EUR → `REJECTED`, stock unchanged;
-  out of stock → `REJECTED`; other customer can't see the order; staff list.
+  not enough stock → checkout `409`, cart kept, no order; payment declined → books back in the cart; other
+  customer can't see the order; staff list.
 - `ModularityTests` confirms the dependency direction.
 
 ## Not in this step

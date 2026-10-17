@@ -91,15 +91,17 @@ class OrderingController {
      * <p>
      * Titles and prices are fixed in the order and the cart is emptied. The answer is 202 with the {@code PENDING}
      * order: stock is reserved and the payment charged in the background. Follow the {@code Location} to see the
-     * order become {@code CONFIRMED} or {@code REJECTED}.
+     * order become {@code CONFIRMED} or {@code REJECTED}; a rejected order's books go back into your cart.
+     * <p>
+     * Stock is checked first: if a book has fewer copies than you want, nothing is ordered and the cart stays.
      */
     @PostMapping("/api/cart/checkout")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Tag(name = "Cart")
     @ApiResponse(responseCode = "202", description = "The order, still PENDING")
     @ApiResponse(responseCode = "409", description = """
-            The cart is empty, some books are no longer for sale, or the cart was changed by another request at the \
-            same time""")
+            The cart is empty, some books are no longer for sale, some books don't have enough stock (each named with \
+            how many copies are left), or the cart was changed by another request at the same time""")
     ResponseEntity<OrderView> checkout(Principal customer) {
         OrderView order = carts.checkout(customer.getName());
         return ResponseEntity.accepted().location(URI.create("/api/orders/" + order.id())).body(order);

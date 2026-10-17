@@ -50,7 +50,7 @@ rejects the order as before (`STOCK_MISSING`, `REJECTED`) and section 3 refills 
 `OrderProcess` rejects in two places: `on(StockReservationFailed)` and `on(PaymentFailed)`. In the same
 transaction, right after the order moves to `REJECTED`, it calls `CartService.restore(order)`:
 
-- Loads the customer's cart with a row lock (`CartRepository.findAndLockById`, `PESSIMISTIC_WRITE`), creating it if
+- Loads the customer's cart with a row lock (`CartRepository.findAndLockByCustomer`, `PESSIMISTIC_WRITE`), creating it if
   missing. The lock makes a concurrent cart edit by the customer wait and then fail its version check (409 "changed
   at the same time", as today) instead of failing the listener, which would leave the rejection unprocessed.
 - For each order line: `Cart.add(bookId, quantity)`: adds to the quantity already in the cart, capped at
@@ -59,7 +59,7 @@ transaction, right after the order moves to `REJECTED`, it calls `CartService.re
   any cart.
 - Once per order: the process only moves an order to `REJECTED` once (`stockUnavailable` / `paymentFailed` return
   false on repeats), so a redelivered event restores nothing.
-- Logged via `ChangeLog`: `Order {}: put {} lines back into the cart`.
+- Logged via `ChangeLog`: `Order {}: put its lines back into the cart`.
 
 No new event or audit step.
 

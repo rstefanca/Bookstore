@@ -101,23 +101,25 @@ class CartService {
     @Transactional
     OrderView checkout(String customer) {
         Cart cart = carts.findById(customer).filter(c -> !c.isEmpty()).orElseThrow(EmptyCartException::new);
+        int cartSize = cart.countLines();
         List<CartLine> cartLines = cart.getLines();
-        List<BookId> bookIds = cartLines.stream().map(CartLine::getBookId).toList();
-        Map<BookId, Money> current = prices.pricesOf(bookIds);
+        Map<BookId, Money> currentPrices = getCurrentPrices(cartLines);
 
-        List<OrderLine> lines = new ArrayList<>();
-        List<String> notForSale = new ArrayList<>();
+        List<OrderLine> lines = new ArrayList<>(cartSize);
+        List<String> notForSale = new ArrayList<>(cartSize);
         Currency currency = null;
         for (CartLine line : cartLines) {
             // Locked until the order is committed, so the book can't be deleted while it is being ordered.
             Optional<BookDetails> book = catalog.existsAndLockAgainstDeletion(line.getBookId())
                     ? catalog.findBook(line.getBookId())
                     : Optional.empty();
-            Money price = current.get(line.getBookId());
+            
+            Money price = currentPrices.get(line.getBookId());
             if (book.isEmpty() || price == null) {
                 notForSale.add(book.map(BookDetails::title).orElse("book " + line.getBookId()));
                 continue;
             }
+            
             currency = price.currency();
             lines.add(new OrderLine(line.getBookId(), book.get().title(), line.getQuantity(), price.amount()));
         }
@@ -125,6 +127,7 @@ class CartService {
             throw new NotForSaleException("No longer for sale: " + String.join(", ", notForSale)
                     + ". Remove them from the cart and check out again.");
         }
+        
         checkStock(lines);
 
         CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency));
@@ -133,6 +136,11 @@ class CartService {
         report(customer, order, lines);
 
         return OrderView.from(order);
+    }
+
+    private Map<BookId, Money> getCurrentPrices(List<CartLine> cartLines) {
+        List<BookId> bookIds = cartLines.stream().map(CartLine::getBookId).toList();
+        return prices.pricesOf(bookIds);
     }
 
     /**
@@ -149,8 +157,8 @@ class CartService {
 
     /**
      * Refuses the checkout, keeping the cart, if any book has fewer copies in stock than ordered. Reads without
-     * reserving: if the stock goes in the meantime, the inventory rejects the order and {@link #restore}
-     * puts its lines back into the cart.
+     * reserving: if the stock goes in the meantime, the inventory rejects the order and the cart is refilled
+     * the cart.
      */
     private void checkStock(List<OrderLine> lines) {
         Map<BookId, Integer> available = stock.availableOf(lines.stream().map(OrderLine::getBookId).toList());
