@@ -21,6 +21,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +52,10 @@ public class BookService {
 
     /** Lists books matching the search, in the page's order and size; use {@link Pageable#unpaged} for all. */
     public Page<BookResponse> findAll(BookSearch search, Pageable page) {
-        Page<Book> books = repository.findAll(BookSpecifications.matching(search), page);
+        // The search's own order is part of its specification; a sorted page would replace it.
+        Pageable paging = search.order() == null || page.isUnpaged() ? page
+                : PageRequest.of(page.getPageNumber(), page.getPageSize());
+        Page<Book> books = repository.findAll(BookSpecifications.matching(search), paging);
         return new PageImpl<>(toResponses(books.getContent()), books.getPageable(), books.getTotalElements());
     }
 

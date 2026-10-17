@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.bookcatalog.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
+import cz.codingmonkey.bookstore.bookcatalog.BookOrder;
 import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import jakarta.persistence.criteria.Expression;
@@ -37,6 +38,9 @@ final class BookSpecifications {
         if (search.condition() != null) {
             filters.add(satisfies(search.condition()));
         }
+        if (search.order() != null) {
+            filters.add(orderedBy(search.order()));
+        }
         return filters.isEmpty() ? Specification.unrestricted() : Specification.allOf(filters);
     }
 
@@ -46,6 +50,17 @@ final class BookSpecifications {
 
     static Specification<Book> satisfies(BookCondition condition) {
         return (book, query, cb) -> condition.toPredicate(book.get("id"), query, cb);
+    }
+
+    /**
+     * Sorts by the order, then title and id. Matches every book. Spring Data drops the ordering from its count query.
+     */
+    static Specification<Book> orderedBy(BookOrder order) {
+        return (book, query, cb) -> {
+            query.orderBy(order.toOrder(book.get("id"), query, cb), cb.asc(book.get("title")),
+                    cb.asc(book.get("id")));
+            return cb.conjunction();
+        };
     }
 
     static Specification<Book> hasAuthor(AuthorId authorId) {
