@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.never;
@@ -21,6 +22,8 @@ import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
+import cz.codingmonkey.bookstore.recommendation.Recommendation;
+import cz.codingmonkey.bookstore.recommendation.Recommendations;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +40,8 @@ import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
- * Bootstraps only the storefront; the catalog and pricing modules are mocked through their public APIs.
+ * Bootstraps only the storefront; the catalog, pricing, rating and recommendation modules are mocked through their
+ * public APIs.
  */
 @ApplicationModuleTest
 @Import(TestcontainersConfiguration.class)
@@ -55,6 +59,9 @@ class StorefrontModuleTests {
 
     @MockitoBean
     Ratings ratings;
+
+    @MockitoBean
+    Recommendations recommendations;
 
     @Autowired
     StorefrontService storefront;
@@ -172,5 +179,69 @@ class StorefrontModuleTests {
                 .isInstanceOf(InvalidPriceRangeException.class)
                 .hasMessage("minPrice (20) can't be above maxPrice (10)");
         assertThat(new PriceRange(new BigDecimal("10"), new BigDecimal("10")).isAny()).isFalse();
+    }
+
+    @Test
+    void recommendsOnlyBooksForSaleInOrderOfSimilarity() {
+        var neuromancer = new BookId(2);
+        var unpriced = new BookId(3);
+        var cookbook = new BookId(4);
+        var neuromancerDetails = new BookDetails(neuromancer, "Neuromancer", List.of(), List.of(), "9780441569595",
+                1984, null);
+        var cookbookDetails = new BookDetails(cookbook, "The Joy of Cooking", List.of(), List.of(), "9780743246262",
+                1931, null);
+        given(recommendations.similarTo(DUNE, 2 * StorefrontService.CANDIDATES_PER_RESULT)).willReturn(Optional.of(
+                List.of(new Recommendation(unpriced, 0.9), new Recommendation(neuromancer, 0.7),
+                        new Recommendation(cookbook, 0.2))));
+        given(prices.pricesOf(List.of(unpriced, neuromancer, cookbook)))
+                .willReturn(Map.of(neuromancer, Money.of("9.99", "EUR"), cookbook, Money.of("25", "EUR")));
+        // The catalog returns them in its own order.
+        given(catalog.findBooks(any(), any()))
+                .willReturn(new PageImpl<>(List.of(cookbookDetails, neuromancerDetails)));
+        given(ratings.summariesOf(List.of(neuromancer, cookbook)))
+                .willReturn(Map.of(neuromancer, RatingSummary.of(Map.of(5, 1))));
+
+        List<SimilarBook> similar = storefront.findSimilar(DUNE, 2);
+
+        assertThat(similar).extracting(SimilarBook::title, SimilarBook::price, SimilarBook::similarity)
+                .containsExactly(
+                        tuple("Neuromancer", Money.of("9.99", "EUR"), 0.7),
+                        tuple("The Joy of Cooking", Money.of("25", "EUR"), 0.2));
+        assertThat(similar.getFirst().rating().count()).isEqualTo(1);
+        assertThat(similar.get(1).rating()).isEqualTo(RatingSummary.NONE);
+    }
+
+    @Test
+    void stopsAtTheLimitAndSkipsBooksTheCatalogNoLongerHas() {
+        var deleted = new BookId(2);
+        var neuromancer = new BookId(3);
+        var cookbook = new BookId(4);
+        given(recommendations.similarTo(DUNE, StorefrontService.CANDIDATES_PER_RESULT)).willReturn(Optional.of(
+                List.of(new Recommendation(deleted, 0.9), new Recommendation(neuromancer, 0.7),
+                        new Recommendation(cookbook, 0.2))));
+        given(prices.pricesOf(List.of(deleted, neuromancer, cookbook))).willReturn(Map.of(
+                deleted, Money.of("1", "EUR"), neuromancer, Money.of("9.99", "EUR"), cookbook, Money.of("25", "EUR")));
+        given(catalog.findBooks(any(), any())).willReturn(new PageImpl<>(List.of()));
+
+        assertThat(storefront.findSimilar(DUNE, 1)).as("the one book for sale was just deleted").isEmpty();
+    }
+
+    @Test
+    void doesNotQueryTheCatalogWhenNoRecommendationIsForSale() {
+        given(recommendations.similarTo(DUNE, StorefrontService.CANDIDATES_PER_RESULT))
+                .willReturn(Optional.of(List.of(new Recommendation(new BookId(2), 0.9))));
+        given(prices.pricesOf(List.of(new BookId(2)))).willReturn(Map.of());
+
+        assertThat(storefront.findSimilar(DUNE, 1)).isEmpty();
+        verify(catalog, never()).findBooks(any(), any());
+    }
+
+    @Test
+    void booksWithoutRecommendationsHaveNone() {
+        given(recommendations.similarTo(any(), anyInt())).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> storefront.findSimilar(DUNE, 5))
+                .isInstanceOf(NoRecommendationsException.class)
+                .hasMessageStartingWith("No recommendations for book 1 yet");
     }
 }

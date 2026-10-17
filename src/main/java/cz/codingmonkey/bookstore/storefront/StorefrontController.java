@@ -7,7 +7,10 @@ import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,14 +23,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Customer-facing reads of books, with prices. Changes to books stay with the catalog's API.
+ * Customer-facing reads of books, with prices, ratings and recommendations. Changes to books stay with the catalog's
+ * API.
  */
 @RestController
 @RequestMapping("/api/books")
 @Tag(name = "Books", description = """
-        The catalog's books with their current price. Anyone can browse; adding, changing and deleting books needs \
-        `STAFF`. A book is for sale while it has a price (see Prices); stock is kept separately (see Inventory).""")
+        The catalog's books with their current price and rating, and similar books to recommend. Anyone can browse; \
+        adding, changing and deleting books needs `STAFF`. A book is for sale while it has a price (see Prices); \
+        stock is kept separately (see Inventory).""")
 class StorefrontController {
+
+    static final int DEFAULT_SIMILAR = 5;
+    static final int MAX_SIMILAR = 20;
 
     private final StorefrontService service;
 
@@ -70,5 +78,24 @@ class StorefrontController {
     @ApiResponse(responseCode = "404", description = "No book with this id")
     StorefrontBook get(@PathVariable BookId id) {
         return service.findBook(id);
+    }
+
+    /**
+     * Lists books similar to a book that are for sale, most similar first, with their prices and ratings.
+     * <p>
+     * Similarity is judged by title, authors, genres and description (text embeddings). Books without a price are
+     * left out, so there can be fewer than {@code limit}. Recommendations are computed in the background, shortly
+     * after a book is created or changed; until a new book's are ready, this answers 404.
+     *
+     * @param limit how many books to return at most
+     */
+    @GetMapping("/{id}/similar")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Similar books for sale, most similar first")
+    @ApiResponse(responseCode = "400", description = "limit isn't between 1 and 20")
+    @ApiResponse(responseCode = "404", description = "Unknown book, or its recommendations aren't ready yet")
+    List<SimilarBook> similar(@PathVariable BookId id,
+            @RequestParam(defaultValue = "" + DEFAULT_SIMILAR) @Min(1) @Max(MAX_SIMILAR) int limit) {
+        return service.findSimilar(id, limit);
     }
 }

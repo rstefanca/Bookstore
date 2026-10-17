@@ -33,6 +33,9 @@ class RecommendationModuleTests {
     BookEmbeddings embeddings;
 
     @Autowired
+    Recommendations recommendations;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @BeforeEach
@@ -51,18 +54,23 @@ class RecommendationModuleTests {
         publishCreated(scenario, COOKBOOK, "The Joy of Cooking", "Irma S. Rombauer",
                 "Classic American recipes for soups, breads, roasts and desserts.");
 
-        List<SimilarBook> similar = embeddings.findSimilar(DUNE, 5);
+        List<Recommendation> similar = recommendations.similarTo(DUNE, 5).orElseThrow();
 
-        assertThat(similar).extracting(SimilarBook::title)
+        assertThat(similar).extracting(Recommendation::bookId)
                 .as("every other book, never the book itself")
-                .containsExactlyInAnyOrder("Children of Dune", "Neuromancer", "The Joy of Cooking");
-        assertThat(similar).extracting(SimilarBook::similarity).isSortedAccordingTo((a, b) -> Double.compare(b, a));
+                .containsExactlyInAnyOrder(CHILDREN_OF_DUNE, NEUROMANCER, COOKBOOK);
+        assertThat(similar).extracting(Recommendation::similarity)
+                .isSortedAccordingTo((a, b) -> Double.compare(b, a));
         // The sequel shares the topic; the others don't, so it should stand out clearly (about 0.8 vs. 0.2-0.3).
-        assertThat(similar.getFirst().title()).isEqualTo("Children of Dune");
+        assertThat(similar.getFirst().bookId()).isEqualTo(CHILDREN_OF_DUNE);
         assertThat(similar.getFirst().similarity()).isGreaterThan(0.6);
         assertThat(similar.subList(1, 3)).allSatisfy(book -> assertThat(book.similarity()).isLessThan(0.5));
-        assertThat(similar.getFirst().authors()).containsExactly("Frank Herbert");
-        assertThat(embeddings.findSimilar(DUNE, 1)).hasSize(1);
+        assertThat(recommendations.similarTo(DUNE, 1)).hasValueSatisfying(books -> assertThat(books).hasSize(1));
+    }
+
+    @Test
+    void hasNoRecommendationsForBooksWithoutAnEmbedding() {
+        assertThat(recommendations.similarTo(new BookId(999), 5)).isEmpty();
     }
 
     @Test
@@ -93,11 +101,12 @@ class RecommendationModuleTests {
 
         scenario.publish(new BookDeletedEvent(CHILDREN_OF_DUNE, "9780441104024", null))
                 .andWaitForStateChange(() -> embeddings.exists(CHILDREN_OF_DUNE), exists -> !exists)
-                .andVerify(exists -> assertThat(embeddings.findSimilar(DUNE, 5)).isEmpty());
+                .andVerify(exists -> assertThat(recommendations.similarTo(DUNE, 5)).hasValue(List.of()));
 
         assertThat(embeddings.save(CHILDREN_OF_DUNE, 5, "Children of Dune", List.of("Frank Herbert"), vector(1)))
                 .as("late event for a deleted book").isFalse();
         assertThat(embeddings.exists(CHILDREN_OF_DUNE)).isFalse();
+        assertThat(recommendations.similarTo(CHILDREN_OF_DUNE, 5)).isEmpty();
     }
 
     @Test
@@ -109,7 +118,7 @@ class RecommendationModuleTests {
         // The same book without a genre, for comparison.
         publishCreated(scenario, new BookId(5), "Neuromancer", "William Gibson", List.of(), neuromancer);
 
-        List<SimilarBook> similar = embeddings.findSimilar(DUNE, 5);
+        List<Recommendation> similar = embeddings.findSimilar(DUNE, 5);
 
         assertThat(similar.getFirst().bookId()).as("the same-genre copy ranks first").isEqualTo(NEUROMANCER);
         assertThat(similar.get(0).similarity() - similar.get(1).similarity()).isGreaterThan(0.05);
