@@ -109,6 +109,8 @@ class McpServerIntegrationTest {
         assertThat(JsonPath.<Integer>read(json, "$[1].id")).as("ids are plain numbers").isEqualTo((int) dune.value());
         assertThat(JsonPath.<String>read(json, "$[1].authors[0].name")).isEqualTo("Frank Herbert");
         assertThat(JsonPath.<String>read(json, "$[1].genres[0].name")).isEqualTo("Science Fiction");
+        assertThat(JsonPath.<Integer>read(json, "$[1].rating.count")).as("unrated book").isZero();
+        assertThat(JsonPath.<Object>read(json, "$[1].rating.average")).isNull();
     }
 
     @Test

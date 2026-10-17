@@ -34,7 +34,7 @@ private. `ModularityTests` enforces this and rejects cycles, so cross-module acc
 or events, never another module's `internal` package or tables.
 
 Modules: `bookcatalog` (books, authors, genres), `inventory` (stock + reservations), `pricing` (`Money`, list
-prices, price history), `storefront` (customer reads composing catalog + prices), `ordering` (cart, orders,
+prices, price history), `storefront` (customer reads composing catalog + prices + ratings), `ordering` (cart, orders,
 `OrderProcess`), `payment` (fake provider), `audit`, `recommendation` (pgvector embeddings), `rating` (customer
 star ratings), `security` (accounts, `SecurityConfiguration`), `shared` (technical building blocks only, no domain
 logic).
@@ -48,7 +48,7 @@ Dependencies only point one way. Patterns used to keep it that way:
   (`StockReserved`/`StockReservationFailed`, `PaymentSucceeded`/`PaymentFailed`, ...). They don't know about
   orders; `ordering` depends on them, not the reverse. See `docs/design/orders.md` for the order state machine
   and compensation (release stock / refund) flow.
-- **Composition at the edge**: `storefront` combines `BookCatalog` and `Prices`; catalog and pricing don't know
+- **Composition at the edge**: `storefront` combines `BookCatalog`, `Prices` and `Ratings`; catalog and pricing don't know
   each other.
 
 ### Events

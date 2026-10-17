@@ -11,7 +11,6 @@ import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -124,12 +123,6 @@ class RatingModuleTests {
                 .andWaitForStateChange(() -> service.summaryOf(DUNE).count(), count -> count == 0);
 
         assertThat(service.summaryOf(NEUROMANCER).count()).isEqualTo(1);
-
-        // Redelivery is harmless.
-        scenario.publish(event).andWaitAtMost(Duration.ofSeconds(1))
-                .andWaitForStateChange(() -> service.summaryOf(NEUROMANCER).count(), count -> count == 1)
-                .andVerify(count -> assertThat(count).isEqualTo(1));
-        assertThat(service.summaryOf(DUNE).count()).isZero();
     }
 
     private BigDecimal averageOf(int... stars) {

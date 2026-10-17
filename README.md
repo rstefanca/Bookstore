@@ -158,9 +158,10 @@ For a single book, the catalog, price and rating queries run in parallel on virt
 result. This uses `CompletableFuture`; structured concurrency (`StructuredTaskScope`) would fit better but is still
 a preview API in Java 25. A list runs one query for the page of books and then, in parallel, one batch query for
 their prices and one for their rating summaries, since both need the page's book ids. A price filter (`minPrice`,
-`maxPrice`) first asks pricing which books are in range (`Prices.booksPricedBetween`) and limits the catalog search
-to them (`BookSearch.onlyBooks`), so paging and totals stay right without either module reading the other's tables.
-For a very large catalog, a broad range would mean a long id list; a search read model would then be the better fit.
+`maxPrice`) first asks pricing which books are in range (`Prices.pricedBetween`) and limits the catalog search
+to them (`BookSearch.matching`), so paging and totals stay right without either module reading the other's tables.
+The condition from pricing is applied in the catalog's own query as an `EXISTS` subquery on prices, so the matching
+ids never leave the database. Books without a price never match a price range.
 Composed responses aren't cached as a whole; each part is cached by the module that owns it (see Caching), and
 rating summaries aren't cached.
 
@@ -369,6 +370,8 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     recommendation ◀──BookCreatedEvent/BookUpdatedEvent/BookDeletedEvent── book
     pricing   ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (setting a price checks the book exists)
     pricing   ◀──BookDeletedEvent── book                             (removes the price)
+    rating    ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (rating checks the book exists)
+    rating    ◀──BookDeletedEvent── book                             (removes the ratings)
     audit     ◀──Auditable events── book, inventory, pricing, ordering
     storefront ──BookCatalog.findBook/findBooks──▶ book
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
