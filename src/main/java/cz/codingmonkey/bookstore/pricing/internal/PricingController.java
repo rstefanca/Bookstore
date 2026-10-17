@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.pricing.internal;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -61,7 +62,7 @@ class PricingController {
      * next to a page of catalog results.
      */
     @GetMapping("/api/prices")
-    PagedModel<PriceResponse> list(@RequestParam(name = "bookId", required = false) List<BookId> bookIds,
+    PagedModel<PriceResponse> list(@RequestParam(name = "bookId", required = false) @Nullable List<BookId> bookIds,
             Pageable page) {
         var byBookId = PageRequest.of(page.getPageNumber(), page.getPageSize(), Sort.by("bookId"));
         return new PagedModel<>(service.findAll(bookIds, byBookId));

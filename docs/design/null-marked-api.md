@@ -1,6 +1,6 @@
 # Design: non-null public API
 
-Status: implemented (2026-10-17).
+Status: implemented (2026-10-17); extended to every package the same day (section 5).
 
 ## Goal
 
@@ -11,7 +11,8 @@ nullability lives only in Javadoc ("{@code null} without a signed-in user").
 Agreed with the user:
 - **JSpecify annotations only.** No Error Prone/NullAway or other build-time check; IDEs and readers use the
   annotations.
-- **Scope: each module's root package** (in Spring Modulith the module's API). `internal` packages stay unmarked.
+- **Scope: each module's root package** (in Spring Modulith the module's API). Extended afterwards to every
+  package, `internal` ones and the application root included (section 5).
   Root packages that also hold implementation classes (audit, recommendation, security, storefront, shared) are
   covered as a whole.
 - No change in runtime behavior or JSON.
@@ -69,8 +70,25 @@ README: no change (it documents the HTTP API, whose behavior does not change).
 - `./gradlew build` stays green (no behavior change; annotations only).
 - One review pass over every file in the ten root packages against the rule in section 2.
 
+## 5. Extension: every package
+
+Decided after the root packages were done: `@NullMarked` on every package, so the rule is the same everywhere.
+
+- New `package-info.java` with `@org.jspecify.annotations.NullMarked` (and a one-line Javadoc) for
+  `cz.codingmonkey.bookstore` and the five `internal` packages (`bookcatalog`, `inventory`, `ordering`, `payment`,
+  `pricing`). Modules without an `internal` package were already covered.
+- `@Nullable` by the same rule (section 2), e.g. a book's `publishedYear` and `description` (entity, request,
+  response, demo data), the `reason` of reservations, payments and orders, a price period's `validUntil`, a cart
+  item's title and prices, the cart total, the optional currency of a price request, optional name and book-id
+  filters of services, controllers and MCP tools.
+- Spring Data now null-checks every repository at runtime. Every repository method returns `Optional`, `Page`,
+  `List`, `boolean` or `int`, and no caller passes `null` (the name-filter queries run only for a non-null name),
+  so nothing changes at runtime; the full test suite confirms it.
+- Request records whose components a compact constructor defaults (`BookRequest.genreIds`,
+  `AuthorRequest.favoriteGenreIds`) stay non-null: their accessors never return `null`.
+
 ## Out of scope
 
 - Build-time enforcement (Error Prone + NullAway).
-- `internal` packages and test code.
+- Test code.
 - Replacing nullable values with `Optional` or other API changes.

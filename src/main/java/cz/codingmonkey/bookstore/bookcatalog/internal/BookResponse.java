@@ -6,6 +6,7 @@ import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @param authors in credited order
@@ -17,8 +18,8 @@ public record BookResponse(
         List<AuthorSummary> authors,
         List<GenreResponse> genres,
         String isbn,
-        Integer publishedYear,
-        String description
+        @Nullable Integer publishedYear,
+        @Nullable String description
 ) {
 
     /** An author as listed on a book; see {@link AuthorResponse} for the full author. */

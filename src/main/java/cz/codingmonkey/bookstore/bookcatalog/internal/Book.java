@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 @Entity
 public class Book {
@@ -54,10 +55,10 @@ public class Book {
     @Column(nullable = false, unique = true)
     private String isbn;
 
-    private Integer publishedYear;
+    private @Nullable Integer publishedYear;
 
     @Column(length = 2000)
-    private String description;
+    private @Nullable String description;
 
     @Version
     private long version;
@@ -65,8 +66,8 @@ public class Book {
     protected Book() {
     }
 
-    public Book(String title, List<AuthorId> authorIds, Set<GenreId> genreIds, String isbn, Integer publishedYear,
-            String description) {
+    public Book(String title, List<AuthorId> authorIds, Set<GenreId> genreIds, String isbn,
+            @Nullable Integer publishedYear, @Nullable String description) {
         update(title, authorIds, genreIds, isbn, publishedYear, description);
     }
 
@@ -75,12 +76,12 @@ public class Book {
     public List<AuthorId> getAuthorIds() { return List.copyOf(authorIds); }
     public Set<GenreId> getGenreIds() { return Set.copyOf(genreIds); }
     public String getIsbn() { return isbn; }
-    public Integer getPublishedYear() { return publishedYear; }
-    public String getDescription() { return description; }
+    public @Nullable Integer getPublishedYear() { return publishedYear; }
+    public @Nullable String getDescription() { return description; }
     public long getVersion() { return version; }
 
     public void update(String title, List<AuthorId> authorIds, Set<GenreId> genreIds, String isbn,
-            Integer publishedYear, String description) {
+            @Nullable Integer publishedYear, @Nullable String description) {
         if (authorIds.isEmpty()) {
             throw new IllegalArgumentException("A book needs at least one author");
         }

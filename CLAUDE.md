@@ -84,8 +84,9 @@ no signed-in user.
 - **Virtual threads** serve HTTP requests (`shared.ThreadingConfiguration`).
 - **MCP server**: modules expose read-only tools with `@McpTool` (`*McpTools` classes) at `/mcp`; tools return
   the same JSON as REST.
-- **Null-safety**: module root packages are `@NullMarked` (JSpecify), so their API is non-null unless marked
-  `@Nullable`; `internal` packages are unmarked. Annotations only: the build does not check them.
+- **Null-safety**: every package is `@NullMarked` (JSpecify, in its `package-info.java`), so code is non-null unless
+  marked `@Nullable`; a new package needs a `package-info.java` with `@NullMarked`. Annotations only: the build
+  does not check them.
 
 ### Database
 

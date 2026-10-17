@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -72,7 +73,7 @@ public class PricingService implements Prices {
     }
 
     @Override
-    public BookCondition pricedBetween(BigDecimal min, BigDecimal max) {
+    public BookCondition pricedBetween(@Nullable BigDecimal min, @Nullable BigDecimal max) {
         // EXISTS (select 1 from BookPrice p where p.bookId = <book> and p.price.amount between min and max)
         return (bookId, query, cb) -> {
             Subquery<Integer> inRange = query.subquery(Integer.class);
@@ -105,7 +106,7 @@ public class PricingService implements Prices {
     /**
      * @param bookIds optional: only prices of these books
      */
-    public Page<PriceResponse> findAll(Collection<BookId> bookIds, Pageable page) {
+    public Page<PriceResponse> findAll(@Nullable Collection<BookId> bookIds, Pageable page) {
         Page<BookPrice> result = bookIds == null || bookIds.isEmpty()
                 ? prices.findAllBy(page)
                 : prices.findByBookIdIn(bookIds, page);
@@ -132,7 +133,7 @@ public class PricingService implements Prices {
      */
     @Transactional
     @CacheEvict(cacheNames = PRICE_CACHE, key = "#bookId")
-    public PriceResponse setPrice(BookId bookId, BigDecimal amount, String currencyCode) {
+    public PriceResponse setPrice(BookId bookId, BigDecimal amount, @Nullable String currencyCode) {
         Money price = rules.toPrice(amount, currencyCode);
 
         if (!books.existsAndLockAgainstDeletion(bookId)) {

@@ -12,6 +12,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import java.time.Instant;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 @Entity
 class Payment {
@@ -32,7 +33,7 @@ class Payment {
     private Status status;
 
     @Column(length = 500)
-    private String reason;
+    private @Nullable String reason;
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -40,7 +41,7 @@ class Payment {
     protected Payment() {
     }
 
-    private Payment(PaymentReference reference, Money amount, Status status, String reason) {
+    private Payment(PaymentReference reference, Money amount, Status status, @Nullable String reason) {
         this.reference = reference;
         this.amount = amount;
         this.status = status;
@@ -59,7 +60,7 @@ class Payment {
     PaymentReference getReference() { return reference; }
     Money getAmount() { return amount; }
     Status getStatus() { return status; }
-    String getReason() { return reason; }
+    @Nullable String getReason() { return reason; }
 
     /** @return whether this refunds the payment now (only a charged payment, only once) */
     boolean refund() {

@@ -4,6 +4,7 @@ import cz.codingmonkey.bookstore.pricing.Money;
 import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Turns a requested amount and currency into a valid price, or explains why it isn't one: the amount must be
@@ -21,7 +22,7 @@ record PriceRules(Currency storeCurrency) {
      * @param currencyCode ISO 4217 code; {@code null} means the store currency
      * @throws InvalidPriceException if the amount or currency isn't acceptable
      */
-    Money toPrice(BigDecimal amount, String currencyCode) {
+    Money toPrice(@Nullable BigDecimal amount, @Nullable String currencyCode) {
         if (amount == null) {
             throw new InvalidPriceException("A price needs an amount");
         }
@@ -39,7 +40,7 @@ record PriceRules(Currency storeCurrency) {
         }
     }
 
-    private Currency currencyOf(String currencyCode) {
+    private Currency currencyOf(@Nullable String currencyCode) {
         if (currencyCode == null) {
             return storeCurrency;
         }

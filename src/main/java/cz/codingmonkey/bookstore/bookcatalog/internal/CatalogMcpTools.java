@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.bookcatalog.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -35,9 +36,10 @@ class CatalogMcpTools {
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
     List<AuthorResponse> listAuthors(
-            @McpToolParam(required = false, description = "Text the name contains, case-insensitive") String name,
+            @McpToolParam(required = false, description = "Text the name contains, case-insensitive")
+            @Nullable String name,
             @McpToolParam(required = false, description = "Maximum number of authors, 1-50; default 20")
-            Integer limit) {
+            @Nullable Integer limit) {
         return authors.findAll(blankToNull(name), PageRequest.of(0, checkLimit(limit), Sort.by("name"))).getContent();
     }
 
@@ -53,11 +55,12 @@ class CatalogMcpTools {
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
     List<GenreResponse> listGenres(
-            @McpToolParam(required = false, description = "Text the name contains, case-insensitive") String name) {
+            @McpToolParam(required = false, description = "Text the name contains, case-insensitive")
+            @Nullable String name) {
         return genres.findAll(blankToNull(name), Pageable.unpaged(Sort.by("name"))).getContent();
     }
 
-    private static int checkLimit(Integer limit) {
+    private static int checkLimit(@Nullable Integer limit) {
         if (limit == null) {
             return DEFAULT_LIMIT;
         }
@@ -67,7 +70,7 @@ class CatalogMcpTools {
         return limit;
     }
 
-    private static String blankToNull(String text) {
+    private static @Nullable String blankToNull(@Nullable String text) {
         return text == null || text.isBlank() ? null : text;
     }
 }

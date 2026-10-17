@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A period during which a book had a given price. Open ({@code validUntil == null}) while it is the current price.
@@ -38,7 +39,7 @@ class PricePeriod {
     @Column(nullable = false)
     private Instant validFrom;
 
-    private Instant validUntil;
+    private @Nullable Instant validUntil;
 
     protected PricePeriod() {
     }
@@ -51,7 +52,7 @@ class PricePeriod {
 
     Money getPrice() { return price; }
     Instant getValidFrom() { return validFrom; }
-    Instant getValidUntil() { return validUntil; }
+    @Nullable Instant getValidUntil() { return validUntil; }
 
     void close(Instant at) {
         this.validUntil = at;

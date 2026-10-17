@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stock taken for one reservation, or a record that it couldn't be (so a repeated request gets the same answer).
@@ -33,7 +34,7 @@ class StockReservation {
     private Status status;
 
     @Column(length = 500)
-    private String reason;
+    private @Nullable String reason;
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -45,7 +46,7 @@ class StockReservation {
     protected StockReservation() {
     }
 
-    private StockReservation(ReservationId id, Status status, String reason, List<ReservationLine> lines) {
+    private StockReservation(ReservationId id, Status status, @Nullable String reason, List<ReservationLine> lines) {
         this.id = id;
         this.status = status;
         this.reason = reason;
@@ -63,7 +64,7 @@ class StockReservation {
 
     ReservationId getId() { return id; }
     Status getStatus() { return status; }
-    String getReason() { return reason; }
+    @Nullable String getReason() { return reason; }
     List<ReservationLine> getLines() { return List.copyOf(lines); }
 
     /** @return whether the stock should now be put back (only the first time) */

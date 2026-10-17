@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
@@ -45,8 +46,8 @@ class DemoCatalogData implements ApplicationRunner {
     }
 
     /** @param authors keys of the book's authors, in credited order */
-    record DemoBook(String title, List<String> authors, List<String> genres, String isbn, Integer publishedYear,
-            String description) {
+    record DemoBook(String title, List<String> authors, List<String> genres, String isbn,
+            @Nullable Integer publishedYear, @Nullable String description) {
     }
 
     private final BookRepository books;

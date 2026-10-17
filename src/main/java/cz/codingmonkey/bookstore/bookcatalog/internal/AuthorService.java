@@ -6,6 +6,7 @@ import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import cz.codingmonkey.bookstore.shared.CurrentUser;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -38,7 +39,7 @@ public class AuthorService {
      * @param name optional: the name contains this text, ignoring case
      * @param page order and size of the result; use {@link Pageable#unpaged} for all
      */
-    public Page<AuthorResponse> findAll(String name, Pageable page) {
+    public Page<AuthorResponse> findAll(@Nullable String name, Pageable page) {
         Page<Author> result = name == null
                 ? authors.findAllBy(page)
                 : authors.findByNameContainingIgnoreCase(name, page);

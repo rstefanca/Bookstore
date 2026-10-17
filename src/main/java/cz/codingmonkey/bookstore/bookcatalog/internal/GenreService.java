@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.bookcatalog.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
+import org.jspecify.annotations.Nullable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,7 +27,7 @@ public class GenreService {
      * @param name optional: the name contains this text, ignoring case
      * @param page order and size of the result; use {@link Pageable#unpaged} for all
      */
-    public Page<GenreResponse> findAll(String name, Pageable page) {
+    public Page<GenreResponse> findAll(@Nullable String name, Pageable page) {
         Page<Genre> result = name == null ? genres.findAllBy(page) : genres.findByNameContainingIgnoreCase(name, page);
         return result.map(GenreResponse::from);
     }

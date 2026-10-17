@@ -9,6 +9,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @param authorIds ids of existing authors, in credited order
@@ -19,8 +20,8 @@ public record BookRequest(
         @NotEmpty @Size(max = 20) List<@NotNull AuthorId> authorIds,
         @Size(max = 10) Set<@NotNull GenreId> genreIds,
         @NotBlank @Size(max = 20) String isbn,
-        @PositiveOrZero Integer publishedYear,
-        @Size(max = 2000) String description) {
+        @PositiveOrZero @Nullable Integer publishedYear,
+        @Size(max = 2000) @Nullable String description) {
 
     public BookRequest {
         genreIds = genreIds == null ? Set.of() : genreIds;

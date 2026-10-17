@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.bookcatalog.internal;
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import jakarta.validation.Valid;
 import java.net.URI;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
@@ -31,7 +32,7 @@ class GenreController {
     }
 
     @GetMapping
-    PagedModel<GenreResponse> list(@RequestParam(required = false) String name, Pageable page) {
+    PagedModel<GenreResponse> list(@RequestParam(required = false) @Nullable String name, Pageable page) {
         return new PagedModel<>(service.findAll(name, BookController.sortedBy(page, "name")));
     }
 

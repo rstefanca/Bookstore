@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An order and where it is in the order process ({@link OrderStatus}). Each step method moves it on only from the
@@ -58,7 +59,7 @@ class CustomerOrder {
 
     /** Why it was rejected. */
     @Column(length = 500)
-    private String reason;
+    private @Nullable String reason;
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -90,7 +91,7 @@ class CustomerOrder {
     OrderStatus getStatus() { return status; }
     List<OrderLine> getLines() { return List.copyOf(lines); }
     Money getTotal() { return new Money(total, currency); }
-    String getReason() { return reason; }
+    @Nullable String getReason() { return reason; }
     Instant getCreatedAt() { return createdAt; }
 
     boolean stockReserved() {
@@ -116,7 +117,7 @@ class CustomerOrder {
         }
     }
 
-    private boolean moveOn(OrderStatus from, OrderStatus to, String why) {
+    private boolean moveOn(OrderStatus from, OrderStatus to, @Nullable String why) {
         if (status != from) {
             return false;
         }
