@@ -382,8 +382,9 @@ returns 404. Deleting a book whose stock is above 0 returns 409.
 
 The book module consults `BookDeletionPolicy` implementations instead of calling inventory. That keeps book
 unaware of inventory and avoids a cyclic module dependency. To stop a restock and a delete from running at the
-same time, restock takes a `FOR SHARE` lock on the book row and delete takes `FOR UPDATE` before checking the
-policies (see `RestockDeleteRaceTest`).
+same time, restock (like setting a price or rating a book) takes a `FOR KEY SHARE` lock on the book row and
+delete takes `FOR UPDATE` before checking the policies (see `RestockDeleteRaceTest`). `FOR KEY SHARE` doesn't block
+ordinary updates, so staff can still edit a book while customers rate it.
 
 Event listeners use `@ApplicationModuleListener`, so they run asynchronously in their own transaction after the
 publisher commits.

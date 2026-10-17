@@ -99,7 +99,7 @@ public class BookService {
     @CacheEvict(cacheNames = CatalogCaches.BOOKS, key = "#id")
     public void delete(BookId id) {
         // Lock first so no other module can change what the policies are about to check.
-        Book book = repository.findAndLockById(id).orElseThrow(() -> new BookNotFoundException(id));
+        Book book = repository.findAndLockById(id.value()).orElseThrow(() -> new BookNotFoundException(id));
         deletionPolicies.orderedStream()
                 .flatMap(policy -> policy.vetoReason(id).stream())
                 .findFirst()

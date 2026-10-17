@@ -41,9 +41,9 @@ logic).
 
 Dependencies only point one way. Patterns used to keep it that way:
 - **SPI instead of calling back**: `bookcatalog.BookDeletionPolicy` is implemented by inventory/pricing so catalog
-  can veto deletes without depending on them. Restock/set-price lock the book row `FOR SHARE`
-  (`BookCatalog.existsAndLockAgainstDeletion`); delete takes `FOR UPDATE` before consulting policies
-  (`RestockDeleteRaceTest`).
+  can veto deletes without depending on them. Restock/set-price/rate lock the book row `FOR KEY SHARE`
+  (`BookCatalog.existsAndLockAgainstDeletion`; blocks the delete, not edits of the book); delete takes
+  `FOR UPDATE` before consulting policies (`RestockDeleteRaceTest`).
 - **Request → result events**: `inventory` and `payment` expose `*Requested` events and publish result events
   (`StockReserved`/`StockReservationFailed`, `PaymentSucceeded`/`PaymentFailed`, ...). They don't know about
   orders; `ordering` depends on them, not the reverse. See `docs/design/orders.md` for the order state machine

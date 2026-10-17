@@ -40,6 +40,7 @@ public record RatingSummary(@Nullable BigDecimal average, int count, Map<Integer
         BigDecimal average = count == 0
                 ? null
                 : BigDecimal.valueOf(total).divide(BigDecimal.valueOf(count), 1, RoundingMode.HALF_UP);
+
         return new RatingSummary(average, count, Collections.unmodifiableMap(stars));
     }
 }

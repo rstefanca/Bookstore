@@ -41,7 +41,7 @@ class JpaBookCatalog implements BookCatalog {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean existsAndLockAgainstDeletion(BookId bookId) {
-        return repository.findAndShareLockById(bookId).isPresent();
+        return repository.findIdAndKeyShareLock(bookId.value()).isPresent();
     }
 
     private static BookDetails toDetails(BookResponse book) {

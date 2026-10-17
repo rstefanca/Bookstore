@@ -23,7 +23,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Checks that the book row lock keeps a concurrent delete from removing a book that is being restocked.
+ * Checks that the book row lock keeps a concurrent delete from removing a book that is being restocked, without
+ * holding up edits of the book.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -68,6 +69,24 @@ class RestockDeleteRaceTest {
                 .satisfies(cause -> assertThat(cause instanceof CompletionException ? cause.getCause() : cause)
                         .isInstanceOf(BookDeletionVetoedException.class));
         assertThat(inventory.findByBookId(bookId).quantity()).isEqualTo(1);
+    }
+
+    @Test
+    void updateDoesNotWaitForInFlightRestock() {
+        var author = authors.create(new AuthorRequest("Author", Set.of())).id();
+        BookId bookId = books.create(
+                new BookRequest("Race", List.of(author), Set.of(), "9780000000002", 2000, null)).id();
+
+        transaction.executeWithoutResult(status -> {
+            inventory.restock(bookId, 1); // holds the lock against deletion until this transaction commits
+
+            // The lock only guards the row's key, so a staff edit of the book goes through right away.
+            CompletableFuture<?> update = CompletableFuture.runAsync(() -> books.update(bookId,
+                    new BookRequest("Race, revised", List.of(author), Set.of(), "9780000000002", 2001, null)));
+            assertThat(update).succeedsWithin(5, TimeUnit.SECONDS);
+        });
+
+        assertThat(books.findById(bookId).title()).isEqualTo("Race, revised");
     }
 
     private static void sleep(Duration duration) {

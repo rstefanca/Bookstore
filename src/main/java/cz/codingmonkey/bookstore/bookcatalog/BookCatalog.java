@@ -17,7 +17,7 @@ public interface BookCatalog {
 
     /**
      * Returns whether the book exists and, if so, keeps it from being deleted until the caller's transaction ends.
-     * Must be called within a transaction.
+     * Edits of the book are not held up. Must be called within a transaction.
      */
     boolean existsAndLockAgainstDeletion(BookId bookId);
 }
