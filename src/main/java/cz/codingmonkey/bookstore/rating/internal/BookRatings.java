@@ -1,0 +1,71 @@
+package cz.codingmonkey.bookstore.rating.internal;
+
+import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+/**
+ * Stores the star ratings in {@code book_rating}, one row per book and customer.
+ */
+@Repository
+class BookRatings {
+
+    private final JdbcClient jdbc;
+
+    BookRatings(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    /** Inserts the customer's rating of the book, or replaces the stars of the existing one. */
+    Rating save(BookId bookId, String customer, int stars, Instant ratedAt) {
+        jdbc.sql("""
+                INSERT INTO book_rating (book_id, customer, stars, rated_at) VALUES (?, ?, ?, ?)
+                ON CONFLICT (book_id, customer) DO UPDATE
+                    SET stars = EXCLUDED.stars, rated_at = EXCLUDED.rated_at
+                """)
+                .param(bookId.value())
+                .param(customer)
+                .param(stars)
+                .param(OffsetDateTime.ofInstant(ratedAt, ZoneOffset.UTC))
+                .update();
+        return new Rating(bookId, stars, ratedAt);
+    }
+
+    Optional<Rating> find(BookId bookId, String customer) {
+        return jdbc.sql("SELECT stars, rated_at FROM book_rating WHERE book_id = ? AND customer = ?")
+                .param(bookId.value())
+                .param(customer)
+                .query((rs, row) -> new Rating(bookId, rs.getInt("stars"),
+                        rs.getObject("rated_at", OffsetDateTime.class).toInstant()))
+                .optional();
+    }
+
+    /** Number of ratings per star value of each of the books; books without ratings are left out. */
+    Map<BookId, Map<Integer, Integer>> countStars(Collection<BookId> bookIds) {
+        Long[] ids = bookIds.stream().map(BookId::value).toArray(Long[]::new);
+        Map<BookId, Map<Integer, Integer>> counts = new HashMap<>();
+        jdbc.sql("""
+                SELECT book_id, stars, count(*) AS n FROM book_rating
+                WHERE book_id = ANY(?)
+                GROUP BY book_id, stars
+                """)
+                .param(ids)
+                .query(rs -> {
+                    counts.computeIfAbsent(new BookId(rs.getLong("book_id")), id -> new HashMap<>())
+                            .put(rs.getInt("stars"), rs.getInt("n"));
+                });
+        return counts;
+    }
+
+    /** @return number of ratings removed */
+    int deleteAll(BookId bookId) {
+        return jdbc.sql("DELETE FROM book_rating WHERE book_id = ?").param(bookId.value()).update();
+    }
+}
