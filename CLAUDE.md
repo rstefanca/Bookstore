@@ -20,7 +20,7 @@ All tests need a running Docker daemon (Testcontainers starts `pgvector/pgvector
 ```
 
 There is no separate linter/formatter configured. `bootRun` (`BookstoreApplication`) instead needs your own
-Postgres at `localhost:5432/bookstore` (user/pass `bookstore`) with pgvector available. On first start the
+Postgres at `localhost:5432/bookstore` (user/pass `bookstore`) with pgvector 0.8+ available. On first start the
 recommendation module downloads the ONNX embedding model (internet needed unless
 `bookstore.recommendation.model-uri`/`tokenizer-uri` point at local files).
 

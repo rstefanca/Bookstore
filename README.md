@@ -11,7 +11,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 |--------|---------|------------|----------------|
 | Security | `cz.codingmonkey.bookstore.security` | none | Staff accounts and the access rules for every endpoint |
 | Shared | `cz.codingmonkey.bookstore.shared` | `LongId`, `LongIdType` | Technical building blocks (id persistence, caching setup), no domain logic |
-| Book Catalog | `cz.codingmonkey.bookstore.bookcatalog` | `BookId`, `AuthorId`, `GenreId`, `BookDetails`, `BookSearch`; `BookCreatedEvent`, `BookUpdatedEvent`, `BookDeletedEvent`, `AuthorCreatedEvent` events; `BookCatalog`; `BookDeletionPolicy` SPI | Books, authors and genres (implementation in `bookcatalog.internal`) |
+| Book Catalog | `cz.codingmonkey.bookstore.bookcatalog` | `BookId`, `AuthorId`, `GenreId`, `BookDetails`, `BookSearch`, `BookCondition`, `BookOrder`; `BookCreatedEvent`, `BookUpdatedEvent`, `BookDeletedEvent`, `AuthorCreatedEvent` events; `BookCatalog`; `BookDeletionPolicy` SPI | Books, authors and genres (implementation in `bookcatalog.internal`) |
 | Inventory | `cz.codingmonkey.bookstore.inventory` | `Stock`; `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
 | Pricing | `cz.codingmonkey.bookstore.pricing` | `Money`, `Prices`; `PriceChangedEvent` | List price per book in the store currency (implementation in `pricing.internal`) |
 | Storefront | `cz.codingmonkey.bookstore.storefront` | none | Customer-facing book reads: catalog details plus price |
@@ -29,7 +29,7 @@ in the `account` table with BCrypt password hashes. Customers are accounts too: 
 
 | Who | May |
 |-----|-----|
-| Anyone | Browse books, authors, genres, prices and recommendations; use the read-only MCP tools; check health; read the OpenAPI spec |
+| Anyone | Browse books, authors, genres, prices and similar books; use the read-only MCP tools; check health; read the OpenAPI spec |
 | `STAFF` | Also create, change and delete books, authors and genres; manage prices and inventory; read price history |
 | `ADMIN` | Everything staff may, plus read the audit log, manage accounts and use the other actuator endpoints |
 | `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, rate books, get personal picks; signs up with `POST /api/accounts/register` |
@@ -424,7 +424,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     recommendation ──Prices.pricesOf─────────────▶ pricing  (only books for sale are picked)
     storefront ──BookCatalog.findBook/findBooks──▶ book
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
-    storefront ──Ratings.summaryOf/summariesOf──▶ rating
+    storefront ──Ratings.summaryOf/summariesOf/ratedAtLeast/byRating──▶ rating
 
 A new book has no stock record. One is created on its first restock, so until then `/api/inventory/{bookId}`
 returns 404. Deleting a book whose stock is above 0 returns 409.

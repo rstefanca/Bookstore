@@ -50,7 +50,10 @@ public class BookService {
         this.deletionPolicies = deletionPolicies;
     }
 
-    /** Lists books matching the search, in the page's order and size; use {@link Pageable#unpaged} for all. */
+    /**
+     * Lists books matching the search, in the page's size; use {@link Pageable#unpaged} for all. The order is the
+     * page's sort, unless the search has its own order, which then replaces the sort.
+     */
     public Page<BookResponse> findAll(BookSearch search, Pageable page) {
         // The search's own order is part of its specification; a sorted page would replace it.
         Pageable paging = search.order() == null || page.isUnpaged() ? page

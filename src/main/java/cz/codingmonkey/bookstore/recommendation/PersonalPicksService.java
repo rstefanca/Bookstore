@@ -4,6 +4,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.pricing.Prices;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +64,8 @@ class PersonalPicksService {
     private List<PickedBook> fill(int limit, CandidateSource source) {
         int batchSize = 2 * limit;
         List<PickedBook> kept = new ArrayList<>(limit);
+        // Every batch re-reads the live data at a new offset, so rows shifting between batches can repeat a book.
+        Set<BookId> keptIds = new HashSet<>();
         int offset = 0;
         while (true) {
             Batch batch = source.read(offset, batchSize);
@@ -74,7 +77,7 @@ class PersonalPicksService {
                     if (kept.size() == limit) {
                         break;
                     }
-                    if (forSale.contains(candidate.bookId())) {
+                    if (forSale.contains(candidate.bookId()) && keptIds.add(candidate.bookId())) {
                         kept.add(candidate);
                     }
                 }

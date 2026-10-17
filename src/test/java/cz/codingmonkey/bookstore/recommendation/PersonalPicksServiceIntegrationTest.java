@@ -67,8 +67,17 @@ class PersonalPicksServiceIntegrationTest {
                 "Classic American recipes for soups, breads, roasts and desserts.");
 
         // Embeddings are computed asynchronously after each book is created.
-        await().until(() -> jdbc.queryForObject(
-                "SELECT count(*) FROM book_embedding WHERE NOT deleted", Integer.class) == 4);
+        List<BookId> own = List.of(dune, childrenOfDune, duneMessiah, cookbook);
+        await().until(() -> own.stream().allMatch(book -> jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM book_embedding WHERE book_id = ? AND NOT deleted)",
+                Boolean.class, book.value())));
+
+        // Books other test classes created may still get their embedding after the wipe above; they'd become
+        // candidates, so tombstone every embedding that isn't one of ours (as a book deletion would).
+        jdbc.update("""
+                UPDATE book_embedding SET deleted = true, title = NULL, authors = NULL, embedding = NULL
+                WHERE book_id NOT IN (?, ?, ?, ?)
+                """, dune.value(), childrenOfDune.value(), duneMessiah.value(), cookbook.value());
     }
 
     @Test

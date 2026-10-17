@@ -12,7 +12,10 @@ public interface BookCatalog {
     /** The book with the given id, if it exists. */
     Optional<BookDetails> findBook(BookId bookId);
 
-    /** Books matching the search, in the page's order and size; use {@link Pageable#unpaged} for all. */
+    /**
+     * Books matching the search, in the page's size; use {@link Pageable#unpaged} for all. The order is the page's
+     * sort, unless the search has its own order, which then replaces the sort.
+     */
     Page<BookDetails> findBooks(BookSearch search, Pageable page);
 
     /**

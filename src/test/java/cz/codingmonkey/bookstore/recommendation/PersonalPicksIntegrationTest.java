@@ -56,6 +56,7 @@ class PersonalPicksIntegrationTest {
                 .expectBody()
                 .jsonPath("$.personal").isEqualTo(true)
                 .jsonPath("$.books").isArray()
+                .jsonPath("$.books").isNotEmpty()
                 .jsonPath("$.books[?(@.bookId == %d)]".formatted(dune)).isEmpty();
     }
 

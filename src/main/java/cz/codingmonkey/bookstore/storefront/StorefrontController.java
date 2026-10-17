@@ -68,7 +68,8 @@ class StorefrontController {
             @RequestParam(required = false) @Nullable BigDecimal minPrice,
             @RequestParam(required = false) @Nullable BigDecimal maxPrice,
             @RequestParam(required = false) @Nullable @DecimalMin("1") @DecimalMax("5") BigDecimal minRating,
-            @RequestParam(defaultValue = "title") @Parameter(schema = @Schema(allowableValues = {"title", "rating"}))
+            @RequestParam(defaultValue = "title")
+            @Parameter(schema = @Schema(allowableValues = {"title", "rating"}, defaultValue = "title"))
             String orderBy,
             Pageable page) {
         BookOrdering ordering = BookOrdering.parse(orderBy);
