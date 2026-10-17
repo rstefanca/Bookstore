@@ -45,9 +45,12 @@ every account has a first and last name (accounts created before names existed h
 none until set), and passwords need 12-72 bytes (BCrypt ignores anything past 72). You can't delete your own account, and the last admin
 can't be deleted, even by two admins deleting each other at the same moment (admin rows are locked while checking).
 
-Audited events implement `shared.Auditable` and describe themselves: the audit action name, the subject (a book,
-author or order id) and the description text. The audit module has a single listener for `Auditable`, so a new
-audited event only needs to implement it and have its action added to `AuditEntry.Action`.
+Audited events implement `shared.Auditable` and describe themselves: the audit action name, the subject (any
+`shared.LongId`) and the description text. The audit module has a single listener for `Auditable` and depends only on
+`shared`. The action is stored as given (upper snake case, at most 50 characters), and the subject as
+`LongId.typeName()` plus the id value (`subject_type`, `subject_id`), so a new audited event or subject type needs no
+change in the audit module. An event that sets its own `occurredAt` and is delivered again is skipped when an entry
+with the same subject, action and `occurredAt` exists.
 
 Audit entries record who made each change (`actor`: the username). The audited events carry the actor, taken
 from the signed-in user when the change is made (`shared.CurrentUser`), because the audit listeners run in the
@@ -58,9 +61,10 @@ recorded before actors existed have `actor: null`.
 Purchases are audited step by step. The ordering module reports every step it sees (`OrderProgressedEvent`):
 `ORDER_PLACED`, `ORDER_STOCK_RESERVED` or `ORDER_STOCK_MISSING`, `ORDER_PAYMENT_CHARGED` or `ORDER_PAYMENT_DECLINED`,
 `ORDER_CONFIRMED`, `ORDER_REJECTED`, `ORDER_CANCELLED`, and the undo steps `ORDER_STOCK_RELEASED` and
-`ORDER_PAYMENT_REFUNDED`. Each entry has the order id and the customer as actor, also for steps done in the
-background. Each step is recorded once per order, even when its event is delivered again (unique index). The log
-line for an order step names only the action and the order id. `GET /api/audit?orderId=N` shows one purchase. Full design: `docs/design/purchase-audit.md`.
+`ORDER_PAYMENT_REFUNDED`. Each entry has the order as subject and the customer as actor, also for steps done in the
+background. Each step is recorded once per order, even when its event is delivered again (see above). Every audit log
+line names only the action and the subject. `GET /api/audit?subjectType=ORDER&subjectId=N` shows one purchase. Full
+design: `docs/design/purchase-audit.md`.
 
 Checking a BCrypt password takes tens of milliseconds, on every request with HTTP Basic. That's fine for staff
 tools; for high traffic, exchanging credentials for a token or session once would avoid the repeated cost.
@@ -200,7 +204,7 @@ Every data change is logged at INFO, for example:
 
     INFO ... c.c.b.b.i.BookService    : Created book 1 "Dune" (ISBN 9780441013593)
     INFO ... c.c.b.p.i.PricingService : Changed price of book 1 from 10.00 EUR to 8.50 EUR
-    INFO ... c.c.b.a.AuditListener    : Recorded audit entry PRICE_CHANGED for book 1: Price changed from ...
+    INFO ... c.c.b.a.AuditListener    : Recorded audit entry PRICE_CHANGED for book 1
 
 This covers creating, updating and deleting books, authors and genres; stock and price changes; and the changes
 event listeners make (audit entries, embeddings, stock and price cleanup after a book is deleted). Changes are logged
@@ -267,9 +271,8 @@ bound from requests do so through their static `of(String)` factory, so malforme
 variables and query parameters return 400. `AuditEntryId` and `PricePeriodId` are only created from
 database-generated keys and don't check.
 
-Dependencies only go one way: inventory and audit depend on book, audit also depends on ordering (for
-`OrderId`). Audit receives every event that implements `shared.Auditable`, so it doesn't depend on the modules that
-publish them.
+Dependencies only go one way: inventory depends on book. Audit receives every event that implements
+`shared.Auditable` and depends only on `shared`, so it doesn't depend on the modules that publish them.
 
     inventory ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (restock checks the book exists)
     inventory ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books in stock)
@@ -369,7 +372,7 @@ user/pass `bookstore`). It needs the pgvector extension installed (e.g. the `pgv
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
 | GET    | /api/orders/all            | All customers' orders (staff) |
-| GET    | /api/audit?bookId=..., ?authorId=... or ?orderId=... | Audit trail with who made each change (`actor`), newest first; optionally for one book, author or order (only one filter) (admin) |
+| GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
 
     curl -u admin:<password> -X POST localhost:8080/api/authors -H 'Content-Type: application/json' \
       -d '{"name":"Frank Herbert","favoriteGenreIds":[21]}'

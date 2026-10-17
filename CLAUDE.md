@@ -61,8 +61,10 @@ republished on restart. Consequently listeners must tolerate **duplicate and out
   payments are keyed by order id so repeated requests are idempotent.
 
 Audited events implement `shared.Auditable` (action name, subject id, description, `actor`); `audit.AuditListener`
-has one listener for that interface, and a new action also needs a value in `AuditEntry.Action`. The `actor`
-(username) is captured at publish time via `shared.CurrentUser`, because listeners run with no signed-in user.
+has one listener for that interface. The action must be upper snake case (≤ 50 characters) and the subject is
+stored as `LongId.typeName()` + value, so audit depends only on `shared` and needs no change for new actions or
+subjects. The `actor` (username) is captured at publish time via `shared.CurrentUser`, because listeners run with
+no signed-in user.
 
 ### Cross-cutting conventions
 

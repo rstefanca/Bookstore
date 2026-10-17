@@ -110,7 +110,7 @@ class PricingControllerIntegrationTest {
         setPrice(book, "{\"amount\": 8.50}").expectStatus().isOk();
 
         // The audit module records price changes asynchronously, after each transaction commits.
-        await().untilAsserted(() -> client.get().uri("/api/audit?bookId={id}", book)
+        await().untilAsserted(() -> client.get().uri("/api/audit?subjectType=BOOK&subjectId={id}", book)
                 .exchange()
                 .expectBody()
                 .jsonPath("$.content[?(@.action == 'PRICE_CHANGED')].description").value(descriptions ->

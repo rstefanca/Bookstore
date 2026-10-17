@@ -1,6 +1,6 @@
 # Design: generic audit subject
 
-Status: design agreed (2026-10-17); spec under review, not implemented.
+Status: implemented (2026-10-17).
 
 ## Goal
 
@@ -194,7 +194,8 @@ serialize the JPA embeddable. The fields `bookId`, `authorId`, `orderId` are gon
 
 New:
 - `TypeNamesTest` (root package, plain unit test, next to `ModularityTests` because it names ids of several
-  modules): pins `typeName()` of all nine id types; its message says that renaming an id changes stored audit data.
+  modules): pins `typeName()` of the seven public id types (`AuditEntryId` and `PricePeriodId` are package-private and
+  never reach the audit module); its message says that renaming an id changes stored audit data.
 - `AuditSubjectMigrationTest` (like `AuditOrderMigrationTest`): migrate to V22, insert one book, one author and one
   order entry with raw SQL, migrate to V23; each row has the expected `subject_type`/`subject_id`.
 - `AuditControllerIntegrationTest`: `?subjectType=BOOK&subjectId=N` returns only that book's entries with

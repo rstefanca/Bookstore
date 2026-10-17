@@ -140,7 +140,7 @@ class BookControllerIntegrationTest {
                 .expectBody(BookResponse.class).returnResult().getResponseBody();
 
         // The audit module handles BookCreatedEvent asynchronously, after the book transaction commits.
-        await().untilAsserted(() -> client.get().uri("/api/audit?bookId={id}", created.id())
+        await().untilAsserted(() -> client.get().uri("/api/audit?subjectType=BOOK&subjectId={id}", created.id())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()

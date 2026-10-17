@@ -1,5 +1,7 @@
 # Design: auditing purchases
 
+> Note: audit entries now store a generic subject (subject_type + subject_id); see audit-subject.md.
+
 Status: implemented (2026-10-16).
 
 ## Goal
