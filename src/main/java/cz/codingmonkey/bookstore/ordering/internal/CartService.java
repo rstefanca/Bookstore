@@ -37,8 +37,12 @@ class CartService {
     private final Stock stock;
     private final ApplicationEventPublisher events;
 
-    CartService(CartRepository carts, OrderRepository orders, BookCatalog catalog, Prices prices, Stock stock,
-            ApplicationEventPublisher events) {
+    CartService(CartRepository carts,
+                OrderRepository orders,
+                BookCatalog catalog,
+                Prices prices,
+                Stock stock,
+                ApplicationEventPublisher events) {
         this.carts = carts;
         this.orders = orders;
         this.catalog = catalog;
@@ -132,9 +136,21 @@ class CartService {
     }
 
     /**
+     * Puts a rejected order's lines back into the customer's cart, added to whatever is there now (see
+     * {@link Cart#add}). Books no longer for sale go back too; checkout refuses them as for any cart.
+     */
+    @Transactional
+    void restore(CustomerOrder order) {
+        Cart cart = carts.findAndLockByCustomer(order.getCustomer())
+                .orElseGet(() -> carts.save(new Cart(order.getCustomer())));
+        order.getLines().forEach(line -> cart.add(line.getBookId(), line.getQuantity()));
+        changes.info("Order {}: put {} lines back into the cart", order.getId(), order.getLines().size());
+    }
+
+    /**
      * Refuses the checkout, keeping the cart, if any book has fewer copies in stock than ordered. Reads without
-     * reserving: if the stock goes in the meantime, the inventory rejects the order and its lines go back into
-     * the cart.
+     * reserving: if the stock goes in the meantime, the inventory rejects the order and {@link #restore}
+     * puts its lines back into the cart.
      */
     private void checkStock(List<OrderLine> lines) {
         Map<BookId, Integer> available = stock.availableOf(lines.stream().map(OrderLine::getBookId).toList());

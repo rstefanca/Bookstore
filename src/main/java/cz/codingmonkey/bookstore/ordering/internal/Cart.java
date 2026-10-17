@@ -67,6 +67,20 @@ class Cart {
         }
     }
 
+    /**
+     * Adds copies of the book, up to {@link #MAX_QUANTITY}. A book not yet in the cart is left out when the cart
+     * already holds {@link #MAX_LINES} books.
+     */
+    void add(BookId bookId, int quantity) {
+        int index = indexOf(bookId);
+        if (index >= 0) {
+            int total = Math.min(MAX_QUANTITY, lines.get(index).getQuantity() + quantity);
+            lines.set(index, new CartLine(bookId, total));
+        } else if (lines.size() < MAX_LINES) {
+            lines.add(new CartLine(bookId, Math.min(MAX_QUANTITY, quantity)));
+        }
+    }
+
     void clear() {
         lines.clear();
     }

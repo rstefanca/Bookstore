@@ -134,6 +134,11 @@ class OrderingIntegrationTest {
         customer.get().uri("/api/orders/{id}", order).exchange()
                 .expectBody().jsonPath("$.reason").value(reason -> assertThat((String) reason)
                         .startsWith("Payment failed: Declined"));
+        customer.get().uri("/api/cart").exchange()
+                .expectBody()
+                .jsonPath("$.items.length()").isEqualTo(1)
+                .jsonPath("$.items[0].bookId").isEqualTo(expensive)
+                .jsonPath("$.items[0].quantity").isEqualTo(2);
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(stock(expensive)).isEqualTo(4));
         assertThat(paymentStatus(order)).isEqualTo("DECLINED");
         assertThat(actions(auditUntil(order, 5))).containsExactly("ORDER_PLACED", "ORDER_STOCK_RESERVED",

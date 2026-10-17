@@ -25,7 +25,8 @@ import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Takes orders through the process: stock reservation, then payment, undoing the reservation if payment fails.
+ * Takes orders through the process: stock reservation, then payment, undoing the reservation if payment fails. A
+ * rejected order's lines go back into the customer's cart.
  * <p>
  * Each step reacts to the previous step's result event, asynchronously after it committed, tracked in the event
  * registry. Results may arrive twice or late: the order only moves on from the state a step expects, so anything
@@ -39,10 +40,12 @@ class OrderProcess {
     private static final ChangeLog changes = ChangeLog.of(OrderProcess.class);
 
     private final OrderRepository orders;
+    private final CartService carts;
     private final ApplicationEventPublisher events;
 
-    OrderProcess(OrderRepository orders, ApplicationEventPublisher events) {
+    OrderProcess(OrderRepository orders, CartService carts, ApplicationEventPublisher events) {
         this.orders = orders;
+        this.carts = carts;
         this.events = events;
     }
 
@@ -70,6 +73,7 @@ class OrderProcess {
             if (order.stockUnavailable(why)) {
                 progress(order, OrderStep.STOCK_MISSING, why);
                 progress(order, OrderStep.REJECTED, why);
+                carts.restore(order);
                 changes.info("Order {}: rejected, not enough stock", order.getId());
             }
         });
@@ -93,6 +97,7 @@ class OrderProcess {
             if (order.paymentFailed("Payment failed: " + event.reason())) {
                 progress(order, OrderStep.PAYMENT_DECLINED, event.reason());
                 progress(order, OrderStep.REJECTED, event.reason());
+                carts.restore(order);
                 events.publishEvent(new StockReleaseRequested(new ReservationId(order.getId().value()),
                         order.getCustomer()));
                 changes.info("Order {}: rejected, payment failed; releasing stock", order.getId());

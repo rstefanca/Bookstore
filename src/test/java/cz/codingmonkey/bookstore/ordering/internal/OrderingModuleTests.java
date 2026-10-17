@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -237,6 +238,54 @@ class OrderingModuleTests {
                 .andWaitForStateChange(() -> orderRepository.findById(order.id()).orElseThrow(),
                         found -> found.getStatus() == OrderStatus.REJECTED)
                 .andVerify(found -> assertThat(found.getReason()).isEqualTo("Not enough stock: Dune"));
+    }
+
+    @Test
+    void stockRejectionPutsTheLinesBackIntoTheCart(Scenario scenario) {
+        carts.setQuantity(customer, DUNE, 2);
+        carts.setQuantity(customer, FOUNDATION, 1);
+        OrderView order = carts.checkout(customer);
+        carts.setQuantity(customer, DUNE, 19); // added again while the order was pending
+
+        scenario.publish(new StockReservationFailed(reservation(order), "not enough", List.of(DUNE)))
+                .andWaitForStateChange(() -> status(order), OrderStatus.REJECTED::equals)
+                .andVerify(status -> assertThat(cartQuantities())
+                        .as("added to what is there, capped at the cart limit")
+                        .containsExactly(tuple(DUNE, Cart.MAX_QUANTITY), tuple(FOUNDATION, 1)));
+    }
+
+    @Test
+    void paymentRejectionPutsTheLinesBackIntoTheCart(Scenario scenario) {
+        OrderView order = placeOrder();
+        reserve(scenario, order);
+
+        scenario.publish(new PaymentFailed(payment(order), "Declined"))
+                .andWaitForStateChange(() -> status(order), OrderStatus.REJECTED::equals)
+                .andVerify(status -> assertThat(cartQuantities()).containsExactly(tuple(DUNE, 1)));
+    }
+
+    @Test
+    void aRepeatedRejectionPutsTheLinesBackOnce(Scenario scenario) {
+        OrderView order = placeOrder();
+        var failed = new StockReservationFailed(reservation(order), "not enough", List.of(DUNE));
+        scenario.publish(failed).andWaitForStateChange(() -> status(order), OrderStatus.REJECTED::equals);
+
+        scenario.publish(failed).andWaitForStateChange(() -> true).andVerify(x -> { });
+
+        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(3))
+                .untilAsserted(() -> assertThat(cartQuantities()).containsExactly(tuple(DUNE, 1)));
+    }
+
+    @Test
+    void cancellingDoesNotPutTheLinesBack(Scenario scenario) {
+        OrderView order = placeOrder();
+        reserve(scenario, order);
+        scenario.publish(new PaymentSucceeded(payment(order)))
+                .andWaitForStateChange(() -> status(order), OrderStatus.CONFIRMED::equals);
+
+        orders.cancel(customer, order.id());
+
+        assertThat(cartQuantities()).isEmpty();
     }
 
     @Test
@@ -461,6 +510,10 @@ class OrderingModuleTests {
                 .andWaitForEventOfType(PaymentRequested.class)
                 .matching(request -> request.reference().equals(payment(order)))
                 .toArrive();
+    }
+
+    private List<Tuple> cartQuantities() {
+        return carts.view(customer).items().stream().map(item -> tuple(item.bookId(), item.quantity())).toList();
     }
 
     private OrderStatus status(OrderView order) {
