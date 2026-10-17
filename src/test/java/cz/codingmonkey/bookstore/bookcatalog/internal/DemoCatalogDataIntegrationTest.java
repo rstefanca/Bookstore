@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.bookcatalog.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.LIST;
 import static org.awaitility.Awaitility.await;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
@@ -108,6 +109,21 @@ class DemoCatalogDataIntegrationTest {
         // Neither priced nor stocked: in the catalog, but not for sale.
         client.get().uri("/api/books/{id}", silmarillion).exchange().expectBody().jsonPath("$.price").isEmpty();
         client.get().uri("/api/inventory/{id}", silmarillion).exchange().expectStatus().isNotFound();
+    }
+
+    @Test
+    void demoChangesAreAttributedToTheDemoData() {
+        BookId dune = only("Dune").id();
+
+        // Including the price and stock that pricing and inventory add in reaction to the book's creation.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> client.get()
+                .uri("/api/audit?subjectType=BOOK&subjectId={id}", dune)
+                .exchange()
+                .expectBody()
+                .jsonPath("$.content[*].action").value(actions -> assertThat(actions).asInstanceOf(LIST)
+                        .containsExactlyInAnyOrder("BOOK_CREATED", "PRICE_CHANGED", "STOCK_ADJUSTED"))
+                .jsonPath("$.content[*].actor").value(actors -> assertThat(actors).asInstanceOf(LIST)
+                        .containsOnly(DemoCatalogData.ACTOR)));
     }
 
     private BookResponse only(String title) {

@@ -9,11 +9,14 @@ import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletionPolicy;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.inventory.internal.InsufficientStockException;
 import cz.codingmonkey.bookstore.inventory.internal.InventoryItemRepository;
 import cz.codingmonkey.bookstore.inventory.internal.InventoryService;
 import cz.codingmonkey.bookstore.inventory.internal.UnknownBookException;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,10 +71,13 @@ class InventoryModuleTests {
     @Test
     void publishesStockAdjustedOnRestockAndWithdraw(Scenario scenario) {
         BookId bookId = new BookId(102);
+        given(books.findBook(bookId)).willReturn(Optional.of(
+                new BookDetails(bookId, "Dune", List.of(), List.of(), "isbn", null, null)));
         scenario.stimulate(() -> service.restock(bookId, 5))
                 .andWaitForEventOfType(StockAdjustedEvent.class)
                 .matching(event -> event.bookId().equals(bookId))
                 .toArriveAndVerify(event -> {
+                    assertThat(event.title()).as("for the audit log").isEqualTo("Dune");
                     assertThat(event.delta()).isEqualTo(5);
                     assertThat(event.newQuantity()).isEqualTo(5);
                 });
@@ -79,7 +85,10 @@ class InventoryModuleTests {
         scenario.stimulate(() -> service.withdraw(bookId, 5))
                 .andWaitForEventOfType(StockAdjustedEvent.class)
                 .matching(event -> event.bookId().equals(bookId) && event.delta() < 0)
-                .toArriveAndVerify(event -> assertThat(event.isOutOfStock()).isTrue());
+                .toArriveAndVerify(event -> {
+                    assertThat(event.title()).isEqualTo("Dune");
+                    assertThat(event.isOutOfStock()).isTrue();
+                });
     }
 
     @Test
@@ -109,7 +118,7 @@ class InventoryModuleTests {
         service.restock(bookId, 1);
         service.withdraw(bookId, 1);
 
-        scenario.publish(new BookDeletedEvent(bookId, "9780441569595", null))
+        scenario.publish(new BookDeletedEvent(bookId, "Neuromancer", "9780441569595", null))
                 .andWaitForStateChange(() -> repository.existsById(bookId), exists -> !exists)
                 .andVerify(exists -> assertThat(exists).isFalse());
     }

@@ -129,11 +129,6 @@ class OrderingIntegrationTest {
     }
 
     @Test
-    void auditFiltersAreExclusive() {
-        staff.get().uri("/api/audit?orderId=1&bookId=1").exchange().expectStatus().isBadRequest();
-    }
-
-    @Test
     void checkoutRejectsEmptyCartsAndBooksNoLongerForSale() {
         customer.post().uri("/api/cart/checkout").exchange().expectStatus().isEqualTo(HttpStatus.CONFLICT);
 
@@ -235,7 +230,8 @@ class OrderingIntegrationTest {
 
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> audit(long order) {
-        Map<String, Object> page = staff.get().uri("/api/audit?orderId={id}&size=50", order).exchange()
+        Map<String, Object> page = staff.get().uri("/api/audit?subjectType=ORDER&subjectId={id}&size=50", order)
+                .exchange()
                 .expectStatus().isOk()
                 .expectBody(Map.class).returnResult().getResponseBody();
         var entries = new ArrayList<>((List<Map<String, Object>>) page.get("content"));

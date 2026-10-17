@@ -91,7 +91,7 @@ class RecommendationModuleTests {
         publishCreated(scenario, DUNE, "Dune", "Frank Herbert", "Desert planet, spice, prophecy.");
         publishCreated(scenario, CHILDREN_OF_DUNE, "Children of Dune", "Frank Herbert", "The desert planet again.");
 
-        scenario.publish(new BookDeletedEvent(CHILDREN_OF_DUNE, "9780441104024", null))
+        scenario.publish(new BookDeletedEvent(CHILDREN_OF_DUNE, "Children of Dune", "9780441104024", null))
                 .andWaitForStateChange(() -> embeddings.exists(CHILDREN_OF_DUNE), exists -> !exists)
                 .andVerify(exists -> assertThat(embeddings.findSimilar(DUNE, 5)).isEmpty());
 

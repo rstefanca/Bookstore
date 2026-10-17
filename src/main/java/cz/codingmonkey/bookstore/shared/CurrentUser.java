@@ -9,15 +9,30 @@ import org.springframework.security.core.context.SecurityContextHolder;
  */
 public final class CurrentUser {
 
+    private static final ScopedValue<String> ACTOR = ScopedValue.newInstance();
+
     private CurrentUser() {
     }
 
     /**
-     * The signed-in user's username, or {@code null} when nobody is signed in on this thread: anonymous requests,
-     * startup, or background work such as event listeners (which should pass on the actor of the event that
-     * triggered them instead).
+     * Runs {@code action} with its changes attributed to {@code actor} instead of the signed-in user. For work
+     * nobody is signed in for: startup naming itself, or an event listener passing on the actor of the event it
+     * reacts to.
+     *
+     * @param actor a username or a name for the background work; {@code null} attributes changes to nobody
+     */
+    public static void runAs(String actor, Runnable action) {
+        ScopedValue.where(ACTOR, actor).run(action);
+    }
+
+    /**
+     * The actor set by {@link #runAs}, otherwise the signed-in user's username, or {@code null} when nobody is
+     * signed in on this thread: anonymous requests, startup, or background work such as event listeners.
      */
     public static String username() {
+        if (ACTOR.isBound()) {
+            return ACTOR.get();
+        }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {

@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.inventory.internal;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import cz.codingmonkey.bookstore.bookcatalog.BookCreatedEvent;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -47,7 +48,7 @@ class DemoStockData {
     void on(BookCreatedEvent event) {
         Integer quantity = quantitiesByIsbn.get(event.isbn());
         if (quantity != null && quantity > 0) {
-            inventory.restock(event.bookId(), quantity);
+            CurrentUser.runAs(event.actor(), () -> inventory.restock(event.bookId(), quantity));
         }
     }
 }

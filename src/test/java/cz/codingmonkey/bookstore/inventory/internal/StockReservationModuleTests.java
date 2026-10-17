@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.inventory.ReservationId;
 import cz.codingmonkey.bookstore.inventory.StockAdjustedEvent;
@@ -18,6 +19,7 @@ import cz.codingmonkey.bookstore.inventory.StockReservationRequested.Line;
 import cz.codingmonkey.bookstore.inventory.StockReserved;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -144,11 +146,14 @@ class StockReservationModuleTests {
     @Test
     void stockChangesNameWhoCausedThem(Scenario scenario) {
         ReservationId id = newReservation();
+        given(books.findBook(dune)).willReturn(Optional.of(
+                new BookDetails(dune, "Dune", List.of(), List.of(), "isbn", null, null)));
 
         scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 1)), "rita"))
                 .andWaitForEventOfType(StockAdjustedEvent.class)
                 .matching(adjusted -> adjusted.bookId().equals(dune))
                 .toArriveAndVerify(adjusted -> {
+                    assertThat(adjusted.title()).as("for the audit log").isEqualTo("Dune");
                     assertThat(adjusted.delta()).isEqualTo(-1);
                     assertThat(adjusted.actor()).isEqualTo("rita");
                 });

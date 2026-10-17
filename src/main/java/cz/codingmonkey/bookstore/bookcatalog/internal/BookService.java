@@ -107,7 +107,8 @@ public class BookService {
                     throw new BookDeletionVetoedException(reason);
                 });
         repository.delete(book);
-        events.publishEvent(new BookDeletedEvent(book.getId(), book.getIsbn(), CurrentUser.username()));
+        events.publishEvent(new BookDeletedEvent(book.getId(), book.getTitle(), book.getIsbn(),
+                CurrentUser.username()));
         changesLog.info("Deleted book {} \"{}\" (ISBN {})", book.getId(), book.getTitle(), book.getIsbn());
     }
 

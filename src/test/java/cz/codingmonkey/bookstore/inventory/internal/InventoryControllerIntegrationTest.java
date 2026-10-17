@@ -43,7 +43,7 @@ class InventoryControllerIntegrationTest {
                 .expectBody().jsonPath("$.quantity").isEqualTo(6);
 
         // Book creation plus both stock changes show up in the audit module.
-        await().untilAsserted(() -> client.get().uri("/api/audit?bookId={id}", bookId)
+        await().untilAsserted(() -> client.get().uri("/api/audit?subjectType=BOOK&subjectId={id}", bookId)
                 .exchange()
                 .expectBody().jsonPath("$.content.length()").isEqualTo(3));
     }

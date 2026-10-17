@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.inventory.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.inventory.StockAdjustedEvent;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
@@ -49,7 +50,8 @@ public class InventoryService {
         InventoryItem item = repository.findById(bookId).orElseGet(() -> new InventoryItem(bookId));
         item.restock(amount);
         repository.save(item);
-        events.publishEvent(new StockAdjustedEvent(bookId, amount, item.getQuantity(), CurrentUser.username()));
+        events.publishEvent(new StockAdjustedEvent(bookId, titleOf(bookId), amount, item.getQuantity(),
+                CurrentUser.username()));
         changes.info("Restocked book {} by {}, now {} in stock", bookId, amount, item.getQuantity());
         return InventoryResponse.from(item);
     }
@@ -58,9 +60,15 @@ public class InventoryService {
     public InventoryResponse withdraw(BookId bookId, int amount) {
         InventoryItem item = get(bookId);
         item.withdraw(amount);
-        events.publishEvent(new StockAdjustedEvent(bookId, -amount, item.getQuantity(), CurrentUser.username()));
+        events.publishEvent(new StockAdjustedEvent(bookId, titleOf(bookId), -amount, item.getQuantity(),
+                CurrentUser.username()));
         changes.info("Withdrew {} of book {}, now {} in stock", amount, bookId, item.getQuantity());
         return InventoryResponse.from(item);
+    }
+
+    /** The book's current title, for the audit log; {@code null} if it is no longer in the catalog. */
+    String titleOf(BookId bookId) {
+        return books.findBook(bookId).map(BookDetails::title).orElse(null);
     }
 
     boolean isInStock(BookId bookId) {

@@ -1,6 +1,6 @@
 # Design: generic audit subject
 
-Status: approved design (2026-10-17), not implemented yet.
+Status: implemented (2026-10-17).
 
 ## Goal
 

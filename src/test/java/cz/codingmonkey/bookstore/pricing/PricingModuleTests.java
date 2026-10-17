@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.pricing.internal.InvalidPriceException;
 import cz.codingmonkey.bookstore.pricing.internal.PriceNotFoundException;
@@ -16,6 +17,7 @@ import cz.codingmonkey.bookstore.pricing.internal.PricingService;
 import cz.codingmonkey.bookstore.pricing.internal.UnknownBookException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +53,7 @@ class PricingModuleTests {
 
     @Test
     void priceEventsSurviveTheEventPublicationRegistry() {
-        var event = new PriceChangedEvent(new BookId(7), Money.of("12.90", "EUR"), null, null);
+        var event = new PriceChangedEvent(new BookId(7), "Dune", Money.of("12.90", "EUR"), null, null);
 
         Object serialized = serializer.serialize(event);
 
@@ -66,11 +68,14 @@ class PricingModuleTests {
     @Test
     void settingAPricePutsTheBookOnSale(Scenario scenario) {
         BookId bookId = new BookId(200);
+        given(books.findBook(bookId)).willReturn(Optional.of(
+                new BookDetails(bookId, "Dune", List.of(), List.of(), "isbn", null, null)));
 
         scenario.stimulate(() -> pricing.setPrice(bookId, new BigDecimal("12.9"), null))
                 .andWaitForEventOfType(PriceChangedEvent.class)
                 .matching(event -> event.bookId().equals(bookId))
                 .toArriveAndVerify(event -> {
+                    assertThat(event.title()).as("for the audit log").isEqualTo("Dune");
                     assertThat(event.oldPrice()).isNull();
                     assertThat(event.newPrice()).isEqualTo(Money.of("12.90", "EUR"));
                 });
@@ -140,11 +145,13 @@ class PricingModuleTests {
         BookId bookId = new BookId(206);
         pricing.setPrice(bookId, BigDecimal.TEN, null);
 
-        scenario.publish(new BookDeletedEvent(bookId, "isbn", "jane"))
+        scenario.publish(new BookDeletedEvent(bookId, "Dune", "isbn", "jane"))
                 .andWaitForEventOfType(PriceChangedEvent.class)
                 .matching(event -> event.bookId().equals(bookId) && event.newPrice() == null)
-                .toArriveAndVerify(event -> assertThat(event.actor())
-                        .as("whoever deleted the book removed its price").isEqualTo("jane"));
+                .toArriveAndVerify(event -> {
+                    assertThat(event.actor()).as("whoever deleted the book removed its price").isEqualTo("jane");
+                    assertThat(event.title()).as("no longer in the catalog").isEqualTo("Dune");
+                });
 
         assertThat(pricing.findByBookIds(List.of(bookId))).isEmpty();
     }
@@ -178,7 +185,7 @@ class PricingModuleTests {
         BookId bookId = new BookId(208);
         pricing.setPrice(bookId, BigDecimal.TEN, null);
 
-        scenario.publish(new BookDeletedEvent(bookId, "isbn", null))
+        scenario.publish(new BookDeletedEvent(bookId, "Dune", "isbn", null))
                 .andWaitForStateChange(() -> pricing.findHistory(bookId, Pageable.unpaged()).getContent().getFirst(),
                         period -> period.until() != null)
                 .andVerify(period -> assertThat(period.price()).isEqualTo(Money.of("10", "EUR")));

@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.pricing.internal;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
+import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.PriceChangedEvent;
@@ -159,7 +160,7 @@ public class PricingService implements Prices {
         Instant now = Instant.now();
         closeCurrentPeriod(bookId, now);
         history.save(new PricePeriod(bookId, price, now));
-        events.publishEvent(new PriceChangedEvent(bookId, oldPrice, price, CurrentUser.username()));
+        events.publishEvent(new PriceChangedEvent(bookId, titleOf(bookId), oldPrice, price, CurrentUser.username()));
         if (oldPrice == null) {
             changes.info("Set price of book {} to {}", bookId, price);
         } else {
@@ -174,7 +175,8 @@ public class PricingService implements Prices {
         BookPrice bookPrice = prices.findById(bookId).orElseThrow(() -> new PriceNotFoundException(bookId));
         prices.delete(bookPrice);
         closeCurrentPeriod(bookId, Instant.now());
-        events.publishEvent(new PriceChangedEvent(bookId, bookPrice.getPrice(), null, CurrentUser.username()));
+        events.publishEvent(new PriceChangedEvent(bookId, titleOf(bookId), bookPrice.getPrice(), null,
+                CurrentUser.username()));
         changes.info("Removed price of book {} (was {})", bookId, bookPrice.getPrice());
     }
 
@@ -185,9 +187,15 @@ public class PricingService implements Prices {
         prices.findById(event.bookId()).ifPresent(price -> {
             prices.delete(price);
             closeCurrentPeriod(event.bookId(), Instant.now());
-            events.publishEvent(new PriceChangedEvent(event.bookId(), price.getPrice(), null, event.actor()));
+            events.publishEvent(new PriceChangedEvent(event.bookId(), event.title(), price.getPrice(), null,
+                    event.actor()));
             changes.info("Removed price of deleted book {} (was {})", event.bookId(), price.getPrice());
         });
+    }
+
+    /** The book's current title, for the audit log; {@code null} if it is no longer in the catalog. */
+    private String titleOf(BookId bookId) {
+        return books.findBook(bookId).map(BookDetails::title).orElse(null);
     }
 
     private void closeCurrentPeriod(BookId bookId, Instant at) {
