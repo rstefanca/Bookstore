@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.ordering.internal;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.inventory.Stock;
 import cz.codingmonkey.bookstore.inventory.ReservationId;
 import cz.codingmonkey.bookstore.inventory.StockReservationRequested;
 import cz.codingmonkey.bookstore.ordering.OrderProgressedEvent;
@@ -33,14 +34,16 @@ class CartService {
     private final OrderRepository orders;
     private final BookCatalog catalog;
     private final Prices prices;
+    private final Stock stock;
     private final ApplicationEventPublisher events;
 
-    CartService(CartRepository carts, OrderRepository orders, BookCatalog catalog, Prices prices,
+    CartService(CartRepository carts, OrderRepository orders, BookCatalog catalog, Prices prices, Stock stock,
             ApplicationEventPublisher events) {
         this.carts = carts;
         this.orders = orders;
         this.catalog = catalog;
         this.prices = prices;
+        this.stock = stock;
         this.events = events;
     }
 
@@ -118,6 +121,7 @@ class CartService {
             throw new NotForSaleException("No longer for sale: " + String.join(", ", notForSale)
                     + ". Remove them from the cart and check out again.");
         }
+        checkStock(lines);
 
         CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency));
         cart.clear();
@@ -125,6 +129,23 @@ class CartService {
         report(customer, order, lines);
 
         return OrderView.from(order);
+    }
+
+    /**
+     * Refuses the checkout, keeping the cart, if any book has fewer copies in stock than ordered. Reads without
+     * reserving: if the stock goes in the meantime, the inventory rejects the order and its lines go back into
+     * the cart.
+     */
+    private void checkStock(List<OrderLine> lines) {
+        Map<BookId, Integer> available = stock.availableOf(lines.stream().map(OrderLine::getBookId).toList());
+        List<String> shortBooks = lines.stream()
+                .filter(line -> available.getOrDefault(line.getBookId(), 0) < line.getQuantity())
+                .map(line -> "%s (%d left)".formatted(line.getTitle(), available.getOrDefault(line.getBookId(), 0)))
+                .toList();
+        if (!shortBooks.isEmpty()) {
+            throw new OutOfStockException("Not enough stock: " + String.join(", ", shortBooks)
+                    + ". Change the quantities and check out again.");
+        }
     }
 
     private void report(String customer, CustomerOrder order, List<OrderLine> lines) {

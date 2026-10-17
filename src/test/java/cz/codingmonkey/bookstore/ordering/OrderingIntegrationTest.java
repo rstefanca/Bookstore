@@ -172,25 +172,25 @@ class OrderingIntegrationTest {
     }
 
     @Test
-    void missingStockRejectsTheOrderWithoutTakingAnything() {
+    void checkoutRefusesShortStockAndKeepsTheCart() {
         long scarce = book("9.99", 1);
         long plenty = book("9.99", 10);
         setQuantity(scarce, 2).expectStatus().isOk();
         setQuantity(plenty, 1).expectStatus().isOk();
 
-        long order = checkout();
+        customer.post().uri("/api/cart/checkout").exchange()
+                .expectStatus().isEqualTo(HttpStatus.CONFLICT)
+                .expectBody().jsonPath("$.detail").isEqualTo("Not enough stock: %s (1 left). "
+                        .formatted(title(scarce)) + "Change the quantities and check out again.");
 
-        awaitStatus(order, "REJECTED");
-        customer.get().uri("/api/orders/{id}", order).exchange()
-                .expectBody().jsonPath("$.reason").value(reason -> assertThat((String) reason)
-                        .startsWith("Not enough stock: Book ").doesNotContain(title(plenty)));
+        customer.get().uri("/api/cart").exchange()
+                .expectBody()
+                .jsonPath("$.items.length()").isEqualTo(2)
+                .jsonPath("$.items[0].bookId").isEqualTo(scarce)
+                .jsonPath("$.items[0].quantity").isEqualTo(2);
+        customer.get().uri("/api/orders").exchange().expectBody().jsonPath("$.content").isEmpty();
         assertThat(stock(scarce)).isEqualTo(1);
-        assertThat(stock(plenty)).as("all or nothing").isEqualTo(10);
-        var expected = new String[] {"ORDER_PLACED", "ORDER_STOCK_MISSING", "ORDER_REJECTED"};
-        assertThat(actions(auditUntil(order, 3))).containsExactly(expected);
-        // Nothing was reserved, so nothing is put back.
-        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(2))
-                .untilAsserted(() -> assertThat(actions(audit(order))).containsExactly(expected));
+        assertThat(stock(plenty)).isEqualTo(10);
     }
 
     @Test

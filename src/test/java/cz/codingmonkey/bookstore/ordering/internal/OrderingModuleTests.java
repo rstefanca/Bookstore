@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.ordering.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -12,6 +13,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.inventory.ReservationId;
+import cz.codingmonkey.bookstore.inventory.Stock;
 import cz.codingmonkey.bookstore.inventory.StockReleaseRequested;
 import cz.codingmonkey.bookstore.inventory.StockReleased;
 import cz.codingmonkey.bookstore.inventory.StockReservationFailed;
@@ -20,6 +22,7 @@ import cz.codingmonkey.bookstore.inventory.StockReserved;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.ordering.OrderProgressedEvent;
 import cz.codingmonkey.bookstore.ordering.OrderStep;
+import cz.codingmonkey.bookstore.ordering.internal.OrderingResponses.CartItem;
 import cz.codingmonkey.bookstore.ordering.internal.OrderingResponses.OrderView;
 import cz.codingmonkey.bookstore.payment.PaymentFailed;
 import cz.codingmonkey.bookstore.payment.PaymentReference;
@@ -44,6 +47,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.modulith.test.ApplicationModuleTest;
@@ -67,6 +71,9 @@ class OrderingModuleTests {
 
     @MockitoBean
     Prices prices;
+
+    @MockitoBean
+    Stock stock;
 
     @Autowired
     CartService carts;
@@ -99,6 +106,12 @@ class OrderingModuleTests {
                 .willAnswer(call -> Optional.ofNullable(books.get(call.<BookId>getArgument(0))));
         given(catalog.existsAndLockAgainstDeletion(any()))
                 .willAnswer(call -> books.containsKey(call.<BookId>getArgument(0)));
+        // Plenty of everything, unless a test says otherwise.
+        given(stock.availableOf(anyCollection())).willAnswer(call -> {
+            Map<BookId, Integer> available = new HashMap<>();
+            call.<Collection<BookId>>getArgument(0).forEach(id -> available.put(id, 100));
+            return available;
+        });
         given(prices.priceOf(any()))
                 .willAnswer(call -> Optional.ofNullable(bookPrices.get(call.<BookId>getArgument(0))));
         given(prices.pricesOf(anyCollection())).willAnswer(call -> {
@@ -140,6 +153,41 @@ class OrderingModuleTests {
         assertThatThrownBy(() -> carts.checkout(customer))
                 .isInstanceOf(NotForSaleException.class)
                 .hasMessageContaining("No longer for sale: book " + DUNE.value());
+    }
+
+    @Test
+    void checkoutRefusesShortStockAndKeepsTheCart() {
+        carts.setQuantity(customer, DUNE, 2);
+        carts.setQuantity(customer, FOUNDATION, 1);
+        given(stock.availableOf(anyCollection())).willReturn(Map.of(DUNE, 1, FOUNDATION, 5));
+
+        assertThatThrownBy(() -> carts.checkout(customer))
+                .isInstanceOf(OutOfStockException.class)
+                .hasMessage("Not enough stock: Dune (1 left). Change the quantities and check out again.");
+
+        assertThat(carts.view(customer).items()).extracting(CartItem::bookId, CartItem::quantity)
+                .containsExactly(tuple(DUNE, 2), tuple(FOUNDATION, 1));
+        assertThat(orders.findOwn(customer, PageRequest.of(0, 10)).getTotalElements()).isZero();
+    }
+
+    @Test
+    void namesEveryShortBookWithWhatIsLeft() {
+        carts.setQuantity(customer, DUNE, 2);
+        carts.setQuantity(customer, FOUNDATION, 3);
+        given(stock.availableOf(anyCollection())).willReturn(Map.of(DUNE, 0, FOUNDATION, 2));
+
+        assertThatThrownBy(() -> carts.checkout(customer))
+                .hasMessage("Not enough stock: Dune (0 left), Foundation (2 left). "
+                        + "Change the quantities and check out again.");
+    }
+
+    @Test
+    void notForSaleIsReportedBeforeShortStock() {
+        carts.setQuantity(customer, DUNE, 1);
+        given(catalog.existsAndLockAgainstDeletion(DUNE)).willReturn(false);
+        given(stock.availableOf(anyCollection())).willReturn(Map.of(DUNE, 0));
+
+        assertThatThrownBy(() -> carts.checkout(customer)).isInstanceOf(NotForSaleException.class);
     }
 
     @Test
