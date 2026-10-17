@@ -3,9 +3,13 @@ package cz.codingmonkey.bookstore.inventory.internal;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.inventory.Stock;
 import cz.codingmonkey.bookstore.inventory.StockAdjustedEvent;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import cz.codingmonkey.bookstore.shared.CurrentUser;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-public class InventoryService {
+public class InventoryService implements Stock {
 
     private static final ChangeLog changes = ChangeLog.of(InventoryService.class);
 
@@ -35,6 +39,14 @@ public class InventoryService {
 
     public InventoryResponse findByBookId(BookId bookId) {
         return InventoryResponse.from(get(bookId));
+    }
+
+    @Override
+    public Map<BookId, Integer> availableOf(Collection<BookId> bookIds) {
+        Map<BookId, Integer> available = new HashMap<>();
+        bookIds.forEach(bookId -> available.put(bookId, 0));
+        repository.findAllById(bookIds).forEach(item -> available.put(item.getBookId(), item.getQuantity()));
+        return available;
     }
 
     /**

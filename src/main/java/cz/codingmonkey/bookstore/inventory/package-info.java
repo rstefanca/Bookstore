@@ -7,7 +7,8 @@
  * with {@link cz.codingmonkey.bookstore.inventory.StockReserved} or
  * {@link cz.codingmonkey.bookstore.inventory.StockReservationFailed}) and give it back with
  * {@link cz.codingmonkey.bookstore.inventory.StockReleaseRequested} (announced with
- * {@link cz.codingmonkey.bookstore.inventory.StockReleased}). The inventory doesn't know who reserves.
+ * {@link cz.codingmonkey.bookstore.inventory.StockReleased}). The inventory doesn't know who reserves. Stock levels
+ * can be read through {@link cz.codingmonkey.bookstore.inventory.Stock}.
  */
 @org.jspecify.annotations.NullMarked
 @org.springframework.modulith.ApplicationModule(displayName = "Inventory")

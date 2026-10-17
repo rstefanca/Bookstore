@@ -14,6 +14,8 @@ import cz.codingmonkey.bookstore.inventory.internal.InsufficientStockException;
 import cz.codingmonkey.bookstore.inventory.internal.InventoryItemRepository;
 import cz.codingmonkey.bookstore.inventory.internal.InventoryService;
 import cz.codingmonkey.bookstore.inventory.internal.UnknownBookException;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,9 +43,22 @@ class InventoryModuleTests {
     @Autowired
     BookDeletionPolicy deletionPolicy;
 
+    @Autowired
+    Stock stock;
+
     @BeforeEach
     void allBooksExist() {
         given(books.existsAndLockAgainstDeletion(any())).willReturn(true);
+    }
+
+    @Test
+    void reportsStockLevelsWithZeroForBooksWithoutStock() {
+        BookId stocked = new BookId(110);
+        BookId never = new BookId(111);
+        service.restock(stocked, 3);
+
+        assertThat(stock.availableOf(List.of(stocked, never))).isEqualTo(Map.of(stocked, 3, never, 0));
+        assertThat(stock.availableOf(List.of())).isEmpty();
     }
 
     @Test
