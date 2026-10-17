@@ -6,6 +6,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import java.math.BigDecimal;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -39,14 +40,19 @@ class StorefrontMcpTools {
                     openWorldHint = false))
     List<StorefrontBook> searchBooks(
             @McpToolParam(required = false, description = "Text the title contains, case-insensitive")
-            String title,
+            @Nullable String title,
             @McpToolParam(required = false, description = "Text one of the authors' names contains, case-insensitive")
-            String author,
-            @McpToolParam(required = false, description = "Only books by the author with this id") Long authorId,
-            @McpToolParam(required = false, description = "Only books in the genre with this id") Long genreId,
-            @McpToolParam(required = false, description = "Lowest price, inclusive, e.g. 10") BigDecimal minPrice,
-            @McpToolParam(required = false, description = "Highest price, inclusive, e.g. 12.99") BigDecimal maxPrice,
-            @McpToolParam(required = false, description = "Maximum number of books, 1-50; default 20") Integer limit) {
+            @Nullable String author,
+            @McpToolParam(required = false, description = "Only books by the author with this id")
+            @Nullable Long authorId,
+            @McpToolParam(required = false, description = "Only books in the genre with this id")
+            @Nullable Long genreId,
+            @McpToolParam(required = false, description = "Lowest price, inclusive, e.g. 10")
+            @Nullable BigDecimal minPrice,
+            @McpToolParam(required = false, description = "Highest price, inclusive, e.g. 12.99")
+            @Nullable BigDecimal maxPrice,
+            @McpToolParam(required = false, description = "Maximum number of books, 1-50; default 20")
+            @Nullable Integer limit) {
         var search = new BookSearch(blankToNull(title), blankToNull(author),
                 authorId == null ? null : new AuthorId(authorId),
                 genreId == null ? null : new GenreId(genreId));
@@ -62,7 +68,7 @@ class StorefrontMcpTools {
         return storefront.findBook(new BookId(bookId));
     }
 
-    private static int checkLimit(Integer limit) {
+    private static int checkLimit(@Nullable Integer limit) {
         if (limit == null) {
             return DEFAULT_LIMIT;
         }
@@ -72,7 +78,7 @@ class StorefrontMcpTools {
         return limit;
     }
 
-    private static String blankToNull(String text) {
+    private static @Nullable String blankToNull(@Nullable String text) {
         return text == null || text.isBlank() ? null : text;
     }
 }

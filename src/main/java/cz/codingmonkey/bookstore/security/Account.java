@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A staff account. The password is only ever stored as a hash.
@@ -28,10 +29,10 @@ class Account {
 
     /** {@code null} only for accounts created before names were introduced. */
     @Column(length = 100)
-    private String firstName;
+    private @Nullable String firstName;
 
     @Column(length = 100)
-    private String lastName;
+    private @Nullable String lastName;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -40,7 +41,7 @@ class Account {
     protected Account() {
     }
 
-    Account(String username, String firstName, String lastName, String passwordHash, Role role) {
+    Account(String username, @Nullable String firstName, @Nullable String lastName, String passwordHash, Role role) {
         this.username = username;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -51,11 +52,11 @@ class Account {
     AccountId getId() { return id; }
     String getUsername() { return username; }
     String getPasswordHash() { return passwordHash; }
-    String getFirstName() { return firstName; }
-    String getLastName() { return lastName; }
+    @Nullable String getFirstName() { return firstName; }
+    @Nullable String getLastName() { return lastName; }
     Role getRole() { return role; }
 
-    void rename(String firstName, String lastName) {
+    void rename(@Nullable String firstName, @Nullable String lastName) {
         this.firstName = firstName;
         this.lastName = lastName;
     }

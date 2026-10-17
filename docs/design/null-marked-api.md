@@ -1,6 +1,6 @@
 # Design: non-null public API
 
-Status: design agreed (2026-10-17); spec under review, not implemented.
+Status: implemented (2026-10-17).
 
 ## Goal
 

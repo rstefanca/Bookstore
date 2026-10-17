@@ -5,6 +5,7 @@ import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -33,12 +34,12 @@ class StorefrontController {
      * currency. A {@code sort} parameter is ignored.
      */
     @GetMapping
-    PagedModel<StorefrontBook> list(@RequestParam(required = false) String title,
-            @RequestParam(required = false) String author,
-            @RequestParam(required = false) AuthorId authorId,
-            @RequestParam(required = false) GenreId genreId,
-            @RequestParam(required = false) BigDecimal minPrice,
-            @RequestParam(required = false) BigDecimal maxPrice,
+    PagedModel<StorefrontBook> list(@RequestParam(required = false) @Nullable String title,
+            @RequestParam(required = false) @Nullable String author,
+            @RequestParam(required = false) @Nullable AuthorId authorId,
+            @RequestParam(required = false) @Nullable GenreId genreId,
+            @RequestParam(required = false) @Nullable BigDecimal minPrice,
+            @RequestParam(required = false) @Nullable BigDecimal maxPrice,
             Pageable page) {
         var byTitle = PageRequest.of(page.getPageNumber(), page.getPageSize(), Sort.by("title"));
         return new PagedModel<>(service.findBooks(new BookSearch(title, author, authorId, genreId),

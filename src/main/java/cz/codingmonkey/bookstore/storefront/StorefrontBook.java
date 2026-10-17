@@ -6,6 +6,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookDetails.GenreSummary;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.pricing.Money;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A book as customers see it: the catalog's details plus the current price.
@@ -18,12 +19,12 @@ record StorefrontBook(
         List<AuthorSummary> authors,
         List<GenreSummary> genres,
         String isbn,
-        Integer publishedYear,
-        String description,
-        Money price
+        @Nullable Integer publishedYear,
+        @Nullable String description,
+        @Nullable Money price
 ) {
 
-    static StorefrontBook of(BookDetails book, Money price) {
+    static StorefrontBook of(BookDetails book, @Nullable Money price) {
         return new StorefrontBook(book.id(), book.title(), book.authors(), book.genres(), book.isbn(),
                 book.publishedYear(), book.description(), price);
     }

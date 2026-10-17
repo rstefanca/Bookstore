@@ -8,6 +8,7 @@ import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
@@ -48,7 +49,7 @@ class BookEmbeddingUpdater {
     }
 
     private void update(BookId bookId, long revision, String title, List<String> authors, List<String> genres,
-            String description) {
+            @Nullable String description) {
         float[] embedding = model.embed(textOf(title, authors, genres, description));
         if (embeddings.save(bookId, revision, title, authors, embedding)) {
             changes.info("Updated embedding of book {} (revision {})", bookId, revision);
@@ -66,7 +67,7 @@ class BookEmbeddingUpdater {
      * genres) this format gave the clearest separation between same-genre and other-genre books with
      * all-MiniLM-L6-v2. Changing it changes every embedding, so existing ones should be recomputed.
      */
-    static String textOf(String title, List<String> authors, List<String> genres, String description) {
+    static String textOf(String title, List<String> authors, List<String> genres, @Nullable String description) {
         var text = new StringBuilder();
         String genreList = String.join(", ", genres);
         if (!genres.isEmpty()) {

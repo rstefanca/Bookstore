@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.audit;
 
 import java.time.Instant;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 class AuditController {
 
     /** @param actor username of whoever made the change; {@code null} for changes without a signed-in user */
-    record AuditEntryResponse(AuditEntryId id, String action, SubjectResponse subject, String actor,
+    record AuditEntryResponse(AuditEntryId id, String action, SubjectResponse subject, @Nullable String actor,
             String description, Instant occurredAt) {
 
         static AuditEntryResponse from(AuditEntry entry) {
@@ -40,8 +41,8 @@ class AuditController {
     }
 
     @GetMapping
-    PagedModel<AuditEntryResponse> list(@RequestParam(required = false) String subjectType,
-            @RequestParam(required = false) Long subjectId,
+    PagedModel<AuditEntryResponse> list(@RequestParam(required = false) @Nullable String subjectType,
+            @RequestParam(required = false) @Nullable Long subjectId,
             @RequestParam MultiValueMap<String, String> parameters,
             Pageable pageable) {
         if (parameters.containsKey("bookId") || parameters.containsKey("authorId")

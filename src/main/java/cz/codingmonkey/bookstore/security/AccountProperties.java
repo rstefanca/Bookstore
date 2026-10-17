@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.security;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -14,7 +15,7 @@ record AccountProperties(@DefaultValue InitialAdmin initialAdmin) {
      * @param firstName optional; can be set later with {@code PUT /api/accounts/me}
      * @param lastName  optional, likewise
      */
-    record InitialAdmin(@DefaultValue("admin") String username, String password, String firstName,
-            String lastName) {
+    record InitialAdmin(@DefaultValue("admin") String username, @Nullable String password,
+            @Nullable String firstName, @Nullable String lastName) {
     }
 }

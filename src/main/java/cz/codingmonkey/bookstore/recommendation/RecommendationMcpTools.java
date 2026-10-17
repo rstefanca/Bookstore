@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.recommendation;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -27,7 +28,8 @@ class RecommendationMcpTools {
                     openWorldHint = false))
     List<SimilarBook> findSimilarBooks(
             @McpToolParam(description = "Id of the book to find similar books for") long bookId,
-            @McpToolParam(required = false, description = "Maximum number of books, 1-20; default 5") Integer limit) {
+            @McpToolParam(required = false, description = "Maximum number of books, 1-20; default 5")
+            @Nullable Integer limit) {
         int max = limit == null ? 5 : limit;
         if (max < 1 || max > 20) {
             throw new IllegalArgumentException("limit must be between 1 and 20, was " + limit);

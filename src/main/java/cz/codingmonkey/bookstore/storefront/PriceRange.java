@@ -1,11 +1,12 @@
 package cz.codingmonkey.bookstore.storefront;
 
 import java.math.BigDecimal;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Optional price bounds, inclusive, in the store currency.
  */
-record PriceRange(BigDecimal min, BigDecimal max) {
+record PriceRange(@Nullable BigDecimal min, @Nullable BigDecimal max) {
 
     static final PriceRange ANY = new PriceRange(null, null);
 

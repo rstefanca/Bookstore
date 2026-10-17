@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.security;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,7 +48,8 @@ class AccountService {
      *                  admin when no name is configured
      */
     @Transactional
-    AccountResponse create(String username, String firstName, String lastName, String password, Role role) {
+    AccountResponse create(String username, @Nullable String firstName, @Nullable String lastName, String password,
+            Role role) {
         if (!USERNAME.matcher(username).matches()) {
             throw new InvalidAccountException(
                     "Usernames have 3-100 characters: letters, digits, '.', '_' or '-'");
@@ -137,7 +139,7 @@ class AccountService {
         }
     }
 
-    private static String strip(String name) {
+    private static @Nullable String strip(@Nullable String name) {
         return name == null ? null : name.strip();
     }
 

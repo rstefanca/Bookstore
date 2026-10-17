@@ -12,6 +12,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import org.hibernate.annotations.Type;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Records one change to one subject, any {@code LongId}.
@@ -39,7 +40,7 @@ class AuditEntry {
 
     /** Username of whoever made the change; {@code null} for changes without a signed-in user. */
     @Column(length = 100)
-    private String actor;
+    private @Nullable String actor;
 
     @Column(nullable = false)
     private Instant occurredAt;
@@ -47,7 +48,8 @@ class AuditEntry {
     protected AuditEntry() {
     }
 
-    private AuditEntry(String action, AuditSubject subject, String actor, String description, Instant occurredAt) {
+    private AuditEntry(String action, AuditSubject subject, @Nullable String actor, String description,
+            Instant occurredAt) {
         this.action = action;
         this.subject = subject;
         this.actor = actor;
@@ -63,7 +65,8 @@ class AuditEntry {
      *                   the entry stored for it
      * @throws IllegalArgumentException if the action or the subject's type name is malformed (same format)
      */
-    static AuditEntry of(String action, LongId subject, String actor, String description, Instant occurredAt) {
+    static AuditEntry of(String action, LongId subject, @Nullable String actor, String description,
+            Instant occurredAt) {
         Objects.requireNonNull(subject, "subject");
         if (!isValidName(action)) {
             throw new IllegalArgumentException("Audit action must be upper snake case of at most "
@@ -85,6 +88,6 @@ class AuditEntry {
     String getAction() { return action; }
     AuditSubject getSubject() { return subject; }
     String getDescription() { return description; }
-    String getActor() { return actor; }
+    @Nullable String getActor() { return actor; }
     Instant getOccurredAt() { return occurredAt; }
 }
