@@ -65,8 +65,8 @@ run with no signed-in user. New events that should be attributed must carry it t
 
 ### Cross-cutting conventions
 
-- **Typed ids**: ids are records (`BookId`, `AuthorId`, `OrderId`, ...) wrapping `long`, persisted with Hibernate
-  `UserType`s extending `shared.LongIdType` (not `AttributeConverter`, which isn't allowed on `@Id`). They
+- **Typed ids**: ids are records (`BookId`, `AuthorId`, `OrderId`, ...) wrapping `long` and implementing `shared.LongId`,
+  persisted with Hibernate `UserType`s extending `shared.LongIdType` (not `AttributeConverter`, which isn't allowed on `@Id`). They
   serialize as plain numbers (`@JsonValue`) and bind from path/query params via a static `of(String)`. A new id
   type needs the record + its `*IdType`.
 - **Change logging**: every data change is logged at INFO via `shared.ChangeLog`, which defers the line until

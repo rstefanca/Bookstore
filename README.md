@@ -10,7 +10,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Module | Package | Public API | Responsibility |
 |--------|---------|------------|----------------|
 | Security | `cz.codingmonkey.bookstore.security` | none | Staff accounts and the access rules for every endpoint |
-| Shared | `cz.codingmonkey.bookstore.shared` | `LongIdType` | Technical building blocks (id persistence, caching setup), no domain logic |
+| Shared | `cz.codingmonkey.bookstore.shared` | `LongId`, `LongIdType` | Technical building blocks (id persistence, caching setup), no domain logic |
 | Book Catalog | `cz.codingmonkey.bookstore.bookcatalog` | `BookId`, `AuthorId`, `GenreId`, `BookDetails`, `BookSearch`; `BookCreatedEvent`, `BookUpdatedEvent`, `BookDeletedEvent`, `AuthorCreatedEvent` events; `BookCatalog`; `BookDeletionPolicy` SPI | Books, authors and genres (implementation in `bookcatalog.internal`) |
 | Inventory | `cz.codingmonkey.bookstore.inventory` | `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
 | Pricing | `cz.codingmonkey.bookstore.pricing` | `Money`, `Prices`; `PriceChangedEvent` | List price per book in the store currency (implementation in `pricing.internal`) |
@@ -252,11 +252,16 @@ authentication, so anyone who can reach `/mcp` can read the catalog, the same as
 
 ### Typed ids
 
-Ids are records (`BookId`, `AuthorId`, `GenreId`, `AuditEntryId`) wrapping a `long`, not bare `Long`s. They are stored as `BIGINT` through
-Hibernate `UserType`s built on `shared.LongIdType`. A JPA `AttributeConverter` is not allowed on `@Id` attributes,
-which is why a `UserType` is used. In JSON they are plain numbers (`@JsonValue`), and Spring MVC binds them from
-path variables and query parameters through their static `of(String)` factory. Malformed or non-positive ids
-return 400.
+Ids are records (`BookId`, `AuthorId`, `GenreId`, `OrderId`, `AuditEntryId`, ...) wrapping a `long`, not bare `Long`s.
+All of them implement `shared.LongId` (`long value()`). They are stored as `BIGINT` through Hibernate `UserType`s
+built on `shared.LongIdType`, which only needs the id class and its constructor. A JPA `AttributeConverter` is not
+allowed on `@Id` attributes, which is why a `UserType` is used. In JSON they are plain numbers (`@JsonValue`).
+
+The public ids that come from outside (`BookId`, `AuthorId`, `GenreId`, `OrderId`, `AccountId`, `ReservationId`,
+`PaymentReference`) reject zero and negative values in their constructor via `LongId.requirePositive`. The ones
+bound from requests do so through their static `of(String)` factory, so malformed or non-positive ids in path
+variables and query parameters return 400. `AuditEntryId` and `PricePeriodId` are only created from
+database-generated keys and don't check.
 
 Dependencies only go one way: inventory and audit depend on book, audit also depends on inventory, pricing and ordering.
 

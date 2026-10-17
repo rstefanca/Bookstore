@@ -1,16 +1,15 @@
 package cz.codingmonkey.bookstore.bookcatalog;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import cz.codingmonkey.bookstore.shared.LongId;
 
 /**
  * Identifies a book across all modules. Serialized to JSON as a plain number.
  */
-public record BookId(@JsonValue long value) {
+public record BookId(@JsonValue long value) implements LongId {
 
     public BookId {
-        if (value <= 0) {
-            throw new IllegalArgumentException("Book id must be positive, was " + value);
-        }
+        LongId.requirePositive(value, "Book id");
     }
 
     /** Lets Spring MVC bind path variables and request parameters. */

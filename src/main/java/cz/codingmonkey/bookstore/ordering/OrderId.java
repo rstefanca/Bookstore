@@ -1,16 +1,15 @@
 package cz.codingmonkey.bookstore.ordering;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import cz.codingmonkey.bookstore.shared.LongId;
 
 /**
  * Identifies an order. Serialized to JSON as a plain number.
  */
-public record OrderId(@JsonValue long value) {
+public record OrderId(@JsonValue long value) implements LongId {
 
     public OrderId {
-        if (value <= 0) {
-            throw new IllegalArgumentException("Order id must be positive, was " + value);
-        }
+        LongId.requirePositive(value, "Order id");
     }
 
     /** Lets Spring MVC bind path variables. */

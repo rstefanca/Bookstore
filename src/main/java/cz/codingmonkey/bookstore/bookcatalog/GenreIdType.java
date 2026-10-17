@@ -8,6 +8,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 public class GenreIdType extends LongIdType<GenreId> {
 
     public GenreIdType() {
-        super(GenreId.class, GenreId::new, GenreId::value);
+        super(GenreId.class, GenreId::new);
     }
 }

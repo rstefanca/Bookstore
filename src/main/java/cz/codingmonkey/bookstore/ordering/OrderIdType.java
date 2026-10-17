@@ -9,6 +9,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 public class OrderIdType extends LongIdType<OrderId> {
 
     public OrderIdType() {
-        super(OrderId.class, OrderId::new, OrderId::value);
+        super(OrderId.class, OrderId::new);
     }
 }

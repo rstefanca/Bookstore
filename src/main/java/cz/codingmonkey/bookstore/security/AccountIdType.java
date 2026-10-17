@@ -5,6 +5,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 class AccountIdType extends LongIdType<AccountId> {
 
     AccountIdType() {
-        super(AccountId.class, AccountId::new, AccountId::value);
+        super(AccountId.class, AccountId::new);
     }
 }

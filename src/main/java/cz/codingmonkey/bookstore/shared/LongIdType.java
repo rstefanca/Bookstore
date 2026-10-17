@@ -7,26 +7,22 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.function.LongFunction;
-import java.util.function.ToLongFunction;
 import org.hibernate.type.descriptor.WrapperOptions;
 import org.hibernate.usertype.EnhancedUserType;
 
 /**
- * Hibernate type that stores an immutable id value object (typically a record wrapping a {@code long}) in a
- * {@code BIGINT} column. Unlike a JPA {@code AttributeConverter}, it may be used on {@code @Id} attributes, including
- * database-generated ones. Subclasses only supply the wrapping and unwrapping functions; use with
- * {@code @Type(SubclassName.class)}.
+ * Hibernate type that stores a {@link LongId} in a {@code BIGINT} column. Unlike a JPA {@code AttributeConverter},
+ * it may be used on {@code @Id} attributes, including database-generated ones. Subclasses only supply the id class
+ * and its constructor; use with {@code @Type(SubclassName.class)}.
  */
-public abstract class LongIdType<T> implements EnhancedUserType<T> {
+public abstract class LongIdType<T extends LongId> implements EnhancedUserType<T> {
 
     private final Class<T> idClass;
     private final LongFunction<T> wrap;
-    private final ToLongFunction<T> unwrap;
 
-    protected LongIdType(Class<T> idClass, LongFunction<T> wrap, ToLongFunction<T> unwrap) {
+    protected LongIdType(Class<T> idClass, LongFunction<T> wrap) {
         this.idClass = idClass;
         this.wrap = wrap;
-        this.unwrap = unwrap;
     }
 
     @Override
@@ -50,7 +46,7 @@ public abstract class LongIdType<T> implements EnhancedUserType<T> {
         if (value == null) {
             st.setNull(index, Types.BIGINT);
         } else {
-            st.setLong(index, unwrap.applyAsLong(value));
+            st.setLong(index, value.value());
         }
     }
 
@@ -66,7 +62,7 @@ public abstract class LongIdType<T> implements EnhancedUserType<T> {
 
     @Override
     public Serializable disassemble(T value) {
-        return value == null ? null : unwrap.applyAsLong(value);
+        return value == null ? null : value.value();
     }
 
     @Override
@@ -76,12 +72,12 @@ public abstract class LongIdType<T> implements EnhancedUserType<T> {
 
     @Override
     public String toSqlLiteral(T value) {
-        return Long.toString(unwrap.applyAsLong(value));
+        return Long.toString(value.value());
     }
 
     @Override
     public String toString(T value) {
-        return Long.toString(unwrap.applyAsLong(value));
+        return Long.toString(value.value());
     }
 
     @Override
@@ -99,7 +95,7 @@ public abstract class LongIdType<T> implements EnhancedUserType<T> {
 
             @Override
             public Long convertToDatabaseColumn(T id) {
-                return id == null ? null : unwrap.applyAsLong(id);
+                return id == null ? null : id.value();
             }
 
             @Override

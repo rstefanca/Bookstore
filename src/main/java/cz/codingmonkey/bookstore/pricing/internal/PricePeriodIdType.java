@@ -5,6 +5,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 class PricePeriodIdType extends LongIdType<PricePeriodId> {
 
     PricePeriodIdType() {
-        super(PricePeriodId.class, PricePeriodId::new, PricePeriodId::value);
+        super(PricePeriodId.class, PricePeriodId::new);
     }
 }

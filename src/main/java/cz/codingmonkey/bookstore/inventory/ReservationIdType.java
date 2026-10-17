@@ -6,6 +6,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 public class ReservationIdType extends LongIdType<ReservationId> {
 
     public ReservationIdType() {
-        super(ReservationId.class, ReservationId::new, ReservationId::value);
+        super(ReservationId.class, ReservationId::new);
     }
 }

@@ -1,13 +1,12 @@
 package cz.codingmonkey.bookstore.security;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import cz.codingmonkey.bookstore.shared.LongId;
 
-public record AccountId(@JsonValue long value) {
+public record AccountId(@JsonValue long value) implements LongId {
 
     public AccountId {
-        if (value <= 0) {
-            throw new IllegalArgumentException("Account id must be positive, was " + value);
-        }
+        LongId.requirePositive(value, "Account id");
     }
 
     /** Lets Spring MVC bind path variables. */

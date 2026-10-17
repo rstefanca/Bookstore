@@ -9,6 +9,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 public class AuthorIdType extends LongIdType<AuthorId> {
 
     public AuthorIdType() {
-        super(AuthorId.class, AuthorId::new, AuthorId::value);
+        super(AuthorId.class, AuthorId::new);
     }
 }

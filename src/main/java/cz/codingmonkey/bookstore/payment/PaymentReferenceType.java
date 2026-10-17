@@ -6,6 +6,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 public class PaymentReferenceType extends LongIdType<PaymentReference> {
 
     public PaymentReferenceType() {
-        super(PaymentReference.class, PaymentReference::new, PaymentReference::value);
+        super(PaymentReference.class, PaymentReference::new);
     }
 }

@@ -1,16 +1,15 @@
 package cz.codingmonkey.bookstore.bookcatalog;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import cz.codingmonkey.bookstore.shared.LongId;
 
 /**
  * Identifies a genre across all modules. Serialized to JSON as a plain number.
  */
-public record GenreId(@JsonValue long value) {
+public record GenreId(@JsonValue long value) implements LongId {
 
     public GenreId {
-        if (value <= 0) {
-            throw new IllegalArgumentException("Genre id must be positive, was " + value);
-        }
+        LongId.requirePositive(value, "Genre id");
     }
 
     /** Lets Spring MVC bind path variables and request parameters. */

@@ -5,6 +5,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 class AuditEntryIdType extends LongIdType<AuditEntryId> {
 
     AuditEntryIdType() {
-        super(AuditEntryId.class, AuditEntryId::new, AuditEntryId::value);
+        super(AuditEntryId.class, AuditEntryId::new);
     }
 }

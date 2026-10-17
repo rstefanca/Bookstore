@@ -9,6 +9,6 @@ import cz.codingmonkey.bookstore.shared.LongIdType;
 public class BookIdType extends LongIdType<BookId> {
 
     public BookIdType() {
-        super(BookId.class, BookId::new, BookId::value);
+        super(BookId.class, BookId::new);
     }
 }
