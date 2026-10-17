@@ -15,7 +15,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Inventory | `cz.codingmonkey.bookstore.inventory` | `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
 | Pricing | `cz.codingmonkey.bookstore.pricing` | `Money`, `Prices`; `PriceChangedEvent` | List price per book in the store currency (implementation in `pricing.internal`) |
 | Storefront | `cz.codingmonkey.bookstore.storefront` | none | Customer-facing book reads: catalog details plus price |
-| Ordering | `cz.codingmonkey.bookstore.ordering` | `OrderId` | Carts, orders and the order process (implementation in `ordering.internal`) |
+| Ordering | `cz.codingmonkey.bookstore.ordering` | `OrderId` | Carts, orders and the order process; blocks deleting books with orders (implementation in `ordering.internal`) |
 | Payment | `cz.codingmonkey.bookstore.payment` | `PaymentReference`; request/result events | Fake payment provider: charges, declines, refunds |
 | Audit | `cz.codingmonkey.bookstore.audit` | none | Records an audit trail of every event that implements `shared.Auditable` (book, author, stock, price and order events) |
 | Recommendations | `cz.codingmonkey.bookstore.recommendation` | none | Similar-book suggestions from text embeddings stored with pgvector |
@@ -195,6 +195,10 @@ payments are stored by the order id, so repeated requests get the earlier answer
 row, so they happen once; the order notes each undo step it has seen (stock released, payment refunded), so a
 repeated result doesn't report it again. Full design: `docs/design/orders.md`.
 
+A book with orders can't be deleted (409) while any of them is `PENDING`, `AWAITING_PAYMENT` or `CONFIRMED`;
+rejected and cancelled orders don't count. Checkout locks its books against deletion until the order is saved, so
+a delete can't slip in between (`CheckoutDeleteRaceTest`).
+
 ### Ratings
 
 Customers (`CUSTOMER`) rate a book with 1 to 5 stars (`PUT /api/books/{id}/rating`, body `{"stars": 4}`). Each
@@ -366,6 +370,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
 
     inventory ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (restock checks the book exists)
     inventory ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books in stock)
+    ordering  ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books with orders)
     inventory ◀──BookDeletedEvent──── book                              (removes the empty stock record)
     recommendation ◀──BookCreatedEvent/BookUpdatedEvent/BookDeletedEvent── book
     pricing   ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (setting a price checks the book exists)
@@ -432,7 +437,7 @@ summary.
 | GET    | /api/books/{id}            | Get one book with its price and rating |
 | POST   | /api/books                 | Create a book               |
 | PUT    | /api/books/{id}            | Update a book               |
-| DELETE | /api/books/{id}            | Delete a book; 409 if in stock |
+| DELETE | /api/books/{id}            | Delete a book; 409 if in stock or ordered |
 | PUT    | /api/books/{id}/rating     | Rate a book, body `{"stars": 4}` (1-5); replaces your earlier rating; 400 for other values, 404 if the book doesn't exist (customer) |
 | GET    | /api/books/{id}/rating     | Your rating of a book; 404 if you haven't rated it (customer) |
 | GET    | /api/authors?name=...      | List authors sorted by name (optional name filter) |

@@ -88,7 +88,8 @@ class CartService {
 
     /**
      * Turns the cart into an order with today's titles and prices, empties the cart, and starts the order process
-     * by asking the inventory to reserve the stock.
+     * by asking the inventory to reserve the stock. Its books can't be deleted until the order is committed (and
+     * then {@link SoldBookDeletionPolicy} keeps them).
      */
     @Transactional
     OrderView checkout(String customer) {
@@ -101,7 +102,10 @@ class CartService {
         List<String> notForSale = new ArrayList<>();
         Currency currency = null;
         for (CartLine line : cartLines) {
-            Optional<BookDetails> book = catalog.findBook(line.getBookId());
+            // Locked until the order is committed, so the book can't be deleted while it is being ordered.
+            Optional<BookDetails> book = catalog.existsAndLockAgainstDeletion(line.getBookId())
+                    ? catalog.findBook(line.getBookId())
+                    : Optional.empty();
             Money price = current.get(line.getBookId());
             if (book.isEmpty() || price == null) {
                 notForSale.add(book.map(BookDetails::title).orElse("book " + line.getBookId()));

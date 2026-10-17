@@ -141,6 +141,37 @@ class OrderingIntegrationTest {
     }
 
     @Test
+    void soldBooksCannotBeDeleted() {
+        long sold = book("12.50", 1);
+        setQuantity(sold, 1).expectStatus().isOk();
+        long order = checkout();
+        awaitStatus(order, "CONFIRMED");
+        assertThat(stock(sold)).isZero();
+
+        staff.delete().uri("/api/books/{id}", sold).exchange()
+                .expectStatus().isEqualTo(HttpStatus.CONFLICT)
+                .expectBody().jsonPath("$.detail").value(detail -> assertThat((String) detail).contains("has orders"));
+
+        // Once the order is cancelled and the copy put back and withdrawn, nothing holds the book any more.
+        customer.post().uri("/api/orders/{id}/cancel", order).exchange().expectStatus().isOk();
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(stock(sold)).isEqualTo(1));
+        withdraw(sold, 1);
+        staff.delete().uri("/api/books/{id}", sold).exchange().expectStatus().isNoContent();
+    }
+
+    @Test
+    void rejectedOrdersDontKeepBooksFromBeingDeleted() {
+        long expensive = book("60.00", 2);
+        setQuantity(expensive, 2).expectStatus().isOk(); // 120 EUR: the fake payment declines above 100
+        long order = checkout();
+        awaitStatus(order, "REJECTED");
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(stock(expensive)).isEqualTo(2));
+        withdraw(expensive, 2);
+
+        staff.delete().uri("/api/books/{id}", expensive).exchange().expectStatus().isNoContent();
+    }
+
+    @Test
     void missingStockRejectsTheOrderWithoutTakingAnything() {
         long scarce = book("9.99", 1);
         long plenty = book("9.99", 10);
@@ -243,6 +274,11 @@ class OrderingIntegrationTest {
         staff.post().uri("/api/inventory/{id}/restock", id).contentType(MediaType.APPLICATION_JSON)
                 .body("{\"quantity\": %d}".formatted(stock)).exchange().expectStatus().isOk();
         return id;
+    }
+
+    private void withdraw(long book, int copies) {
+        staff.post().uri("/api/inventory/{id}/withdraw", book).contentType(MediaType.APPLICATION_JSON)
+                .body("{\"quantity\": %d}".formatted(copies)).exchange().expectStatus().isOk();
     }
 
     private String title(long book) {

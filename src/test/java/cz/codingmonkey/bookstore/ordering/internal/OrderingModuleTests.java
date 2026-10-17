@@ -29,9 +29,11 @@ import cz.codingmonkey.bookstore.payment.PaymentSucceeded;
 import cz.codingmonkey.bookstore.payment.RefundRequested;
 import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Currency;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.PublishedEvents;
@@ -77,6 +80,12 @@ class OrderingModuleTests {
     @Autowired
     EventSerializer serializer;
 
+    @Autowired
+    SoldBookDeletionPolicy soldBooks;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
     String customer;
 
     @BeforeEach
@@ -88,6 +97,8 @@ class OrderingModuleTests {
         Map<BookId, Money> bookPrices = Map.of(DUNE, Money.of("14.99", "EUR"), FOUNDATION, Money.of("11.99", "EUR"));
         given(catalog.findBook(any()))
                 .willAnswer(call -> Optional.ofNullable(books.get(call.<BookId>getArgument(0))));
+        given(catalog.existsAndLockAgainstDeletion(any()))
+                .willAnswer(call -> books.containsKey(call.<BookId>getArgument(0)));
         given(prices.priceOf(any()))
                 .willAnswer(call -> Optional.ofNullable(bookPrices.get(call.<BookId>getArgument(0))));
         given(prices.pricesOf(anyCollection())).willAnswer(call -> {
@@ -99,6 +110,36 @@ class OrderingModuleTests {
             }
             return found;
         });
+    }
+
+    @Test
+    void ordersInProgressOrConfirmedKeepTheirBooksFromBeingDeleted() {
+        for (OrderStatus status : OrderStatus.values()) {
+            // A book of its own, so other tests' orders don't count.
+            BookId book = new BookId(1_000_000 + Math.abs(UUID.randomUUID().hashCode() % 1_000_000));
+            CustomerOrder order = orderRepository.save(new CustomerOrder(customer,
+                    List.of(new OrderLine(book, "Book", 1, BigDecimal.TEN)), Currency.getInstance("EUR")));
+            jdbc.update("UPDATE customer_order SET status = ? WHERE id = ?", status.name(), order.getId().value());
+
+            boolean blocks = switch (status) {
+                case PENDING, AWAITING_PAYMENT, CONFIRMED -> true;
+                case REJECTED, CANCELLED -> false;
+            };
+            assertThat(soldBooks.vetoReason(book)).as(status.name()).isEqualTo(blocks
+                    ? Optional.of("Book %s has orders; books that were sold or are being ordered can't be deleted"
+                            .formatted(book))
+                    : Optional.empty());
+        }
+    }
+
+    @Test
+    void checkoutRefusesBooksDeletedMeanwhile() {
+        carts.setQuantity(customer, DUNE, 1);
+        given(catalog.existsAndLockAgainstDeletion(DUNE)).willReturn(false);
+
+        assertThatThrownBy(() -> carts.checkout(customer))
+                .isInstanceOf(NotForSaleException.class)
+                .hasMessageContaining("No longer for sale: book " + DUNE.value());
     }
 
     @Test
