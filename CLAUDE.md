@@ -85,8 +85,9 @@ no signed-in user.
 - **MCP server**: modules expose read-only tools with `@McpTool` (`*McpTools` classes) at `/mcp`; tools return
   the same JSON as REST.
 - **Null-safety**: every package is `@NullMarked` (JSpecify, in its `package-info.java`), so code is non-null unless
-  marked `@Nullable`; a new package needs a `package-info.java` with `@NullMarked`. Annotations only: the build
-  does not check them.
+  marked `@Nullable`; a new package needs a `package-info.java` with `@NullMarked`. The build does not check them,
+  but Spring reads them at runtime: `@Nullable` makes an MVC or MCP tool parameter optional, and Spring Data
+  repositories reject `null` arguments and `null` single-entity results unless marked `@Nullable`.
 
 ### Database
 
