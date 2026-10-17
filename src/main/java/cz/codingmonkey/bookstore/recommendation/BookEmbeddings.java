@@ -4,11 +4,16 @@ import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Stores one embedding per book in {@code book_embedding} (pgvector) and finds nearest neighbours by cosine distance.
@@ -17,6 +22,9 @@ import org.springframework.stereotype.Repository;
 class BookEmbeddings {
 
     static final int DIMENSIONS = 384;
+
+    private static final RowMapper<PickedBook> PICKED_BOOK = (rs, row) -> new PickedBook(
+            new BookId(rs.getLong("book_id")), rs.getString("title"), toList(rs.getArray("authors")));
 
     private final JdbcTemplate jdbc;
 
@@ -84,6 +92,49 @@ class BookEmbeddings {
                         toList(rs.getArray("authors")),
                         rs.getDouble("similarity")),
                 bookId.value(), bookId.value(), bookId.value(), limit);
+    }
+
+    /** Whether any of the books has an embedding (not deleted). */
+    boolean anyExists(Collection<BookId> ids) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM book_embedding WHERE book_id = ANY(?) AND NOT deleted)",
+                Boolean.class, (Object) toArray(ids)));
+    }
+
+    /**
+     * Books closest to the average embedding of the liked books, nearest first, leaving out the excluded books; a
+     * window of {@code count} starting at {@code offset}. At least one liked book must have an embedding
+     * ({@link #anyExists}), otherwise there is nothing to compare to.
+     */
+    @Transactional(readOnly = true)
+    List<PickedBook> nearestTo(Collection<BookId> liked, Collection<BookId> excluded, int offset, int count) {
+        // An HNSW index scan stops after hnsw.ef_search rows, so filtering out excluded books and skipping an offset
+        // could silently return too few. Iterative scans keep going (in exact distance order) until the LIMIT is
+        // filled. SET LOCAL lasts until the end of the transaction, which is why this method has its own.
+        jdbc.execute("SET LOCAL hnsw.iterative_scan = strict_order");
+        // The taste vector is an uncorrelated scalar subquery, evaluated once, so the ORDER BY can use the index.
+        String taste = "(SELECT avg(embedding) FROM book_embedding WHERE book_id = ANY(?) AND NOT deleted)";
+        return jdbc.query("""
+                SELECT book_id, title, authors
+                FROM book_embedding
+                WHERE NOT deleted AND book_id <> ALL(?)
+                ORDER BY embedding <=> %s
+                OFFSET ? LIMIT ?
+                """.formatted(taste), PICKED_BOOK, toArray(excluded), toArray(liked), offset, count);
+    }
+
+    /** The books that have an embedding (not deleted), in the given order; the others are left out. */
+    List<PickedBook> findLive(List<BookId> ids) {
+        Map<BookId, PickedBook> found = jdbc.query(
+                        "SELECT book_id, title, authors FROM book_embedding WHERE book_id = ANY(?) AND NOT deleted",
+                        PICKED_BOOK, (Object) toArray(ids))
+                .stream()
+                .collect(Collectors.toMap(PickedBook::bookId, Function.identity()));
+        return ids.stream().filter(found::containsKey).map(found::get).toList();
+    }
+
+    private static Long[] toArray(Collection<BookId> ids) {
+        return ids.stream().map(BookId::value).toArray(Long[]::new);
     }
 
     private static String toVectorLiteral(float[] embedding) {

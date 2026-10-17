@@ -7,6 +7,8 @@ import cz.codingmonkey.bookstore.bookcatalog.BookCreatedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookUpdatedEvent;
+import cz.codingmonkey.bookstore.pricing.Prices;
+import cz.codingmonkey.bookstore.rating.Ratings;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * Bootstraps only the recommendation module, with the real embedding model, and drives it through book events.
@@ -34,6 +37,13 @@ class RecommendationModuleTests {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    /** Used by personal picks, which these tests don't cover; other modules aren't started. */
+    @MockitoBean
+    Ratings ratings;
+
+    @MockitoBean
+    Prices prices;
 
     @BeforeEach
     void cleanEmbeddings() {
