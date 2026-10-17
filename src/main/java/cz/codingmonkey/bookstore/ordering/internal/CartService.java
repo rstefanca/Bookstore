@@ -47,20 +47,26 @@ class CartService {
     /** The cart with current titles and prices. */
     CartView view(String customer) {
         List<CartLine> lines = carts.findById(customer).map(Cart::getLines).orElse(List.of());
-        Map<BookId, Money> current = prices.pricesOf(lines.stream().map(CartLine::getBookId).toList());
+        Map<BookId, Money> currentBookPrices = prices.pricesOf(lines.stream().map(CartLine::getBookId).toList());
+
         List<CartItem> items = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
         Currency currency = null;
         for (CartLine line : lines) {
-            String title = catalog.findBook(line.getBookId()).map(BookDetails::title).orElse(null);
-            Money price = current.get(line.getBookId());
+
+            Optional<BookDetails> book = catalog.findBook(line.getBookId());
+            String title = book.map(BookDetails::title).orElse(null);
+
+            Money price = currentBookPrices.get(line.getBookId());
             Money lineTotal = price == null ? null : times(price, line.getQuantity());
+
             if (lineTotal != null) {
                 total = total.add(lineTotal.amount());
                 currency = lineTotal.currency();
             }
             items.add(new CartItem(line.getBookId(), title, line.getQuantity(), price, lineTotal));
         }
+
         return new CartView(items, currency == null ? null : new Money(total, currency));
     }
 
@@ -87,12 +93,14 @@ class CartService {
     @Transactional
     OrderView checkout(String customer) {
         Cart cart = carts.findById(customer).filter(c -> !c.isEmpty()).orElseThrow(EmptyCartException::new);
-        Map<BookId, Money> current = prices.pricesOf(cart.getLines().stream().map(CartLine::getBookId).toList());
+        List<CartLine> cartLines = cart.getLines();
+        List<BookId> bookIds = cartLines.stream().map(CartLine::getBookId).toList();
+        Map<BookId, Money> current = prices.pricesOf(bookIds);
 
         List<OrderLine> lines = new ArrayList<>();
         List<String> notForSale = new ArrayList<>();
         Currency currency = null;
-        for (CartLine line : cart.getLines()) {
+        for (CartLine line : cartLines) {
             Optional<BookDetails> book = catalog.findBook(line.getBookId());
             Money price = current.get(line.getBookId());
             if (book.isEmpty() || price == null) {

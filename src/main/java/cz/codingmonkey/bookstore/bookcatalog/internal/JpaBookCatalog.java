@@ -45,9 +45,12 @@ class JpaBookCatalog implements BookCatalog {
     }
 
     private static BookDetails toDetails(BookResponse book) {
-        return new BookDetails(book.id(), book.title(),
+        return new BookDetails(book.id(),
+                book.title(),
                 book.authors().stream().map(author -> new AuthorSummary(author.id(), author.name())).toList(),
                 book.genres().stream().map(genre -> new GenreSummary(genre.id(), genre.name())).toList(),
-                book.isbn(), book.publishedYear(), book.description());
+                book.isbn(),
+                book.publishedYear(),
+                book.description());
     }
 }

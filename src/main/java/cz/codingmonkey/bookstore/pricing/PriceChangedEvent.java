@@ -13,7 +13,12 @@ import org.jmolecules.event.annotation.DomainEvent;
  *                 book; {@code null} without a signed-in user
  */
 @DomainEvent
-public record PriceChangedEvent(BookId bookId, Money oldPrice, Money newPrice, String actor) implements Auditable {
+public record PriceChangedEvent(
+        BookId bookId,
+        Money oldPrice,
+        Money newPrice,
+        String actor
+) implements Auditable {
 
     @Override
     public String auditAction() {

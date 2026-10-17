@@ -27,8 +27,15 @@ final class OrderingResponses {
     }
 
     /** @param reason why the order was rejected, otherwise {@code null} */
-    record OrderView(OrderId id, String customer, String status, List<OrderLineView> lines, Money total,
-            String reason, Instant createdAt) {
+    record OrderView(
+            OrderId id,
+            String customer,
+            String status,
+            List<OrderLineView> lines,
+            Money total,
+            String reason,
+            Instant createdAt
+    ) {
 
         static OrderView from(CustomerOrder order) {
             var currency = order.getTotal().currency();

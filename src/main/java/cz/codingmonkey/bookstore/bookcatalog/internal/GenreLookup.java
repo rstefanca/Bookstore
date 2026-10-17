@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Loads genres referenced by books and authors.
  */
 @Component
-class GenreLookup {
+public class GenreLookup {
 
     private final GenreRepository genres;
 

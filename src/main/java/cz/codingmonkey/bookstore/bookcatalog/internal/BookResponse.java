@@ -11,8 +11,15 @@ import java.util.Map;
  * @param authors in credited order
  * @param genres  sorted by name
  */
-public record BookResponse(BookId id, String title, List<AuthorSummary> authors, List<GenreResponse> genres,
-        String isbn, Integer publishedYear, String description) {
+public record BookResponse(
+        BookId id,
+        String title,
+        List<AuthorSummary> authors,
+        List<GenreResponse> genres,
+        String isbn,
+        Integer publishedYear,
+        String description
+) {
 
     /** An author as listed on a book; see {@link AuthorResponse} for the full author. */
     public record AuthorSummary(AuthorId id, String name) {
