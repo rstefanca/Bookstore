@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookstore Staff</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --surface: #ffffff; --surface-2: #f0eee9; --text: #1d1c1a; --muted: #6b6862;
+    --border: #dedad2; --accent: #2f5d8a; --accent-text: #ffffff; --danger: #a63a2b; --ok: #2e6b3f;
+    --warn-bg: #fbf1dc; --warn-text: #6b4a0f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --surface: #1f1f1d; --surface-2: #2a2a27; --text: #ecebe7; --muted: #a09d96;
+      --border: #3a3935; --accent: #7aa7d6; --accent-text: #0d1a27; --danger: #e07a6b; --ok: #79c08c;
+      --warn-bg: #3a2f17; --warn-text: #f0d79e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav { display: flex; gap: 4px; flex: 1; }
+  nav button { background: none; border: 0; padding: 6px 12px; border-radius: 6px; color: var(--muted); font: inherit; cursor: pointer; }
+  nav button[aria-current="page"] { background: var(--surface-2); color: var(--text); font-weight: 600; }
+  main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .toolbar .spacer { flex: 1; }
+  input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; }
+  textarea { width: 100%; min-height: 70px; }
+  button.btn { font: inherit; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button.btn:hover { background: var(--surface-2); }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.primary:hover { background: var(--accent); filter: brightness(1.08); }
+  button.danger { color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.actions { white-space: nowrap; text-align: right; }
+  td.actions .btn { padding: 3px 8px; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .tag { display: inline-block; background: var(--surface-2); border-radius: 4px; padding: 0 6px; margin: 1px 2px 1px 0; font-size: 12px; }
+  .stock-0 { color: var(--danger); font-weight: 600; }
+  .status { font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--surface-2); }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--muted); }
+  .login { max-width: 340px; margin: 80px auto; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 24px; }
+  .login h2 { margin: 0 0 16px; font-size: 18px; }
+  label { display: block; margin-bottom: 10px; }
+  label > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  label > input, label > select { width: 100%; }
+  .error { color: var(--danger); min-height: 1.4em; }
+  dialog { border: 1px solid var(--border); border-radius: 10px; padding: 0; background: var(--surface); color: var(--text);
+    width: min(560px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgb(0 0 0 / .35); }
+  dialog form { padding: 20px; margin: 0; }
+  dialog h3 { margin: 0 0 14px; font-size: 16px; }
+  .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  .dialog-actions .spacer { flex: 1; }
+  .checks { max-height: 160px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; columns: 2; }
+  .checks label { display: flex; gap: 6px; align-items: center; margin: 0 0 4px; break-inside: avoid; }
+  .checks label > input { width: auto; margin: 0; }
+  .notice { background: var(--warn-bg); color: var(--warn-text); border-radius: 6px; padding: 8px 10px; margin-top: 10px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+    padding: 8px 14px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100vw - 32px); }
+  #toast.show { opacity: 1; }
+  #toast.bad { background: var(--danger); color: #fff; }
+  @media (max-width: 640px) { main { padding: 12px 16px; } header { padding: 10px 16px; } .checks { columns: 1; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<dialog id="dialog"><form method="dialog" id="dialog-form"></form></dialog>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+
+// ---------- API ----------
+const state = { auth: null, user: null, tab: "books" };
+
+class ApiError extends Error {
+  constructor(status, body) { super(`HTTP ${status}`); this.status = status; this.body = body; }
+}
+
+async function api(method, path, body) {
+  const headers = { Accept: "application/json" };
+  if (state.auth) headers.Authorization = state.auth;
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const response = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!response.ok) {
+    if (response.status === 401 && state.user) signOut("Your session is no longer valid. Sign in again.");
+    throw new ApiError(response.status, data);
+  }
+  return data;
+}
+
+async function fetchAll(path) {
+  const items = [];
+  for (let page = 0; ; page++) {
+    const sep = path.includes("?") ? "&" : "?";
+    const data = await api("GET", `${path}${sep}size=100&page=${page}`);
+    items.push(...data.content);
+    if (page + 1 >= data.page.totalPages) return items;
+  }
+}
+
+/** Turns an API error into a sentence; `conflict` explains a 409 for the action at hand. */
+function describe(error, conflict) {
+  if (!(error instanceof ApiError)) return `Couldn't reach the app (${error.message}).`;
+  const s = error.status;
+  const reasons = {
+    400: "The server rejected the input. Check the fields.",
+    401: "Wrong username or password.",
+    403: "Your account isn't allowed to do this.",
+    404: "Not found. It may have been deleted meanwhile.",
+    409: conflict || "Conflict with the current data.",
+    502: "The Bookstore app isn't reachable.",
+  };
+  return `${reasons[s] || "Something went wrong."} (HTTP ${s})`;
+}
+
+// ---------- helpers ----------
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (m) => m ? `${Number(m.amount).toFixed(2)} ${m.currency}` : "";
+const when = (iso) => iso ? new Date(iso).toLocaleString() : "";
+const $ = (sel, root = document) => root.querySelector(sel);
+
+let toastTimer;
+function toast(message, bad = false) {
+  const el = $("#toast");
+  el.textContent = message;
+  el.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.className = ""), bad ? 5000 : 2500);
+}
+
+function pager(page, onGo) {
+  const div = document.createElement("div");
+  div.className = "pager";
+  const total = Math.max(page.totalPages, 1);
+  div.innerHTML = `<span>${page.totalElements} total · page ${page.number + 1} of ${total}</span>
+    <button class="btn" data-go="-1" ${page.number === 0 ? "disabled" : ""}>Previous</button>
+    <button class="btn" data-go="1" ${page.number + 1 >= total ? "disabled" : ""}>Next</button>`;
+  div.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) onGo(page.number + Number(b.dataset.go)); });
+  return div;
+}
+
+/**
+ * Opens the shared dialog. `render(form)` fills it; buttons with data-action call actions[name](form),
+ * which may return false to keep the dialog open (e.g. after showing an error inside it).
+ */
+function openDialog(html, actions = {}) {
+  const dialog = $("#dialog"), form = $("#dialog-form");
+  form.innerHTML = html;
+  form.onclick = async (e) => {
+    const button = e.target.closest("button[data-action]");
+    if (!button) return;
+    e.preventDefault();
+    if (button.dataset.action === "cancel") { dialog.close(); return; }
+    if ((button.type === "submit" || "validate" in button.dataset) && !form.reportValidity()) return;
+    const buttons = form.querySelectorAll("button");
+    buttons.forEach((b) => (b.disabled = true));
+    try {
+      const keepOpen = (await actions[button.dataset.action](form)) === false;
+      if (!keepOpen) dialog.close();
+    } finally {
+      buttons.forEach((b) => (b.disabled = false));
+    }
+  };
+  form.onsubmit = (e) => { e.preventDefault(); form.querySelector("button[type=submit]")?.click(); };
+  dialog.showModal();
+  form.querySelector("input, textarea, select")?.focus();
+  return form;
+}
+
+function dialogError(form, message) {
+  const el = form.querySelector(".error");
+  if (el) el.textContent = message; else toast(message, true);
+  return false;
+}
+
+function checks(name, items, selected) {
+  if (!items.length) return `<div class="muted">None yet.</div>`;
+  return `<div class="checks">${items.map((i) =>
+    `<label><input type="checkbox" name="${name}" value="${i.id}" ${selected.has(i.id) ? "checked" : ""}> ${esc(i.name)}</label>`).join("")}</div>`;
+}
+const checkedIds = (form, name) => [...form.querySelectorAll(`input[name=${name}]:checked`)].map((c) => Number(c.value));
+
+// ---------- sign in ----------
+function renderLogin(message = "") {
+  $("#app").innerHTML = `
+    <form class="login" id="login">
+      <h2>Bookstore staff</h2>
+      <label><span>Username</span><input name="username" autocomplete="username" required></label>
+      <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
+      <div class="error">${esc(message)}</div>
+      <button class="btn primary" type="submit" style="width:100%">Sign in</button>
+    </form>`;
+  const form = $("#login");
+  form.username.focus();
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const button = form.querySelector("button");
+    button.disabled = true;
+    state.auth = "Basic " + btoa(unescape(encodeURIComponent(`${form.username.value}:${form.password.value}`)));
+    try {
+      const me = await api("GET", "/api/accounts/me");
+      if (me.role !== "STAFF" && me.role !== "ADMIN") {
+        state.auth = null;
+        $(".error", form).textContent = "This account isn't a staff account.";
+        button.disabled = false;
+        return;
+      }
+      state.user = me;
+      renderShell();
+    } catch (error) {
+      state.auth = null;
+      $(".error", form).textContent = describe(error);
+      button.disabled = false;
+    }
+  };
+}
+
+function signOut(message) {
+  state.auth = null; state.user = null;
+  if ($("#dialog").open) $("#dialog").close();
+  renderLogin(message);
+}
+
+// ---------- shell ----------
+const tabs = { books: "Books", authors: "Authors", genres: "Genres", orders: "Orders" };
+
+function renderShell() {
+  const name = [state.user.firstName, state.user.lastName].filter(Boolean).join(" ") || state.user.username;
+  $("#app").innerHTML = `
+    <header>
+      <h1>Bookstore staff</h1>
+      <nav>${Object.entries(tabs).map(([k, v]) => `<button data-tab="${k}">${v}</button>`).join("")}</nav>
+      <span class="muted">${esc(name)} · ${esc(state.user.role)}</span>
+      <button class="btn" id="sign-out">Sign out</button>
+    </header>
+    <main id="view"></main>`;
+  $("nav").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); };
+  $("#sign-out").onclick = () => signOut("");
+  showTab(state.tab);
+}
+
+function showTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll("nav button").forEach((b) =>
+    b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  ({ books: Books, authors: Authors, genres: Genres, orders: Orders })[tab].render();
+}
+
+async function load(view, work) {
+  try { await work(); }
+  catch (error) { if (state.user) view.innerHTML = `<div class="error">${esc(describe(error))}</div>`; }
+}
+
+// ---------- books ----------
+const Books = {
+  query: { title: "", author: "", page: 0 },
+
+  render() {
+    const view = $("#view");
+    view.innerHTML = `
+      <div class="toolbar">
+        <input id="q-title" placeholder="Title contains…" value="${esc(this.query.title)}">
+        <input id="q-author" placeholder="Author contains…" value="${esc(this.query.author)}">
+        <button class="btn" id="q-go">Search</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="new-book">New book</button>
+      </div>
+      <div id="books-table" class="muted">Loading…</div>`;
+    const search = () => { this.query = { title: $("#q-title").value.trim(), author: $("#q-author").value.trim(), page: 0 }; this.load(); };
+    $("#q-go").onclick = search;
+    view.querySelectorAll(".toolbar input").forEach((i) => i.addEventListener("keydown", (e) => e.key === "Enter" && search()));
+    $("#new-book").onclick = () => this.edit(null);
+    this.load();
+  },
+
+  async load() {
+    const target = $("#books-table");
+    await load(target, async () => {
+      const params = new URLSearchParams({ page: this.query.page, size: 20 });
+      if (this.query.title) params.set("title", this.query.title);
+      if (this.query.author) params.set("author", this.query.author);
+      const [books, stock] = await Promise.all([api("GET", `/api/books?${params}`), fetchAll("/api/inventory")]);
+      this.stockLevels = new Map(stock.map((s) => [s.bookId, s.quantity]));
+      this.books = new Map(books.content.map((b) => [b.id, b]));
+      if (!books.content.length) { target.innerHTML = `<div class="muted">No books match.</div>`; return; }
+      target.className = "";
+      target.innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>Title</th><th>Authors</th><th>Genres</th><th class="num">Year</th><th class="num">Price</th><th class="num">Stock</th><th></th></tr></thead>
+        <tbody>${books.content.map((b) => {
+          const qty = this.stockLevels.get(b.id) ?? 0;
+          return `<tr data-id="${b.id}">
+            <td><strong>${esc(b.title)}</strong><div class="muted">ISBN ${esc(b.isbn)}</div></td>
+            <td>${esc(b.authors.map((a) => a.name).join(", "))}</td>
+            <td>${b.genres.map((g) => `<span class="tag">${esc(g.name)}</span>`).join("")}</td>
+            <td class="num">${esc(b.publishedYear)}</td>
+            <td class="num">${b.price ? money(b.price) : `<span class="muted">not for sale</span>`}</td>
+            <td class="num ${qty === 0 ? "stock-0" : ""}">${qty}</td>
+            <td class="actions">
+              <button class="btn" data-act="edit">Edit</button>
+              <button class="btn" data-act="price">Price</button>
+              <button class="btn" data-act="stock">Stock</button>
+              <button class="btn" data-act="history">History</button>
+              <button class="btn danger" data-act="delete">Delete</button>
+            </td></tr>`;
+        }).join("")}</tbody></table></div>`;
+      target.append(pager(books.page, (p) => { this.query.page = p; this.load(); }));
+      target.querySelector("tbody").onclick = (e) => {
+        const button = e.target.closest("[data-act]");
+        if (!button) return;
+        const book = this.books.get(Number(button.closest("tr").dataset.id));
+        this[button.dataset.act](book);
+      };
+    });
+  },
+
+  async edit(book) {
+    let authors, genres;
+    try { [authors, genres] = await Promise.all([fetchAll("/api/authors"), fetchAll("/api/genres")]); }
+    catch (error) { toast(describe(error), true); return; }
+    const b = book || { title: "", isbn: "", publishedYear: "", description: "", authors: [], genres: [] };
+    openDialog(`
+      <h3>${book ? "Edit book" : "New book"}</h3>
+      <label><span>Title</span><input name="title" required maxlength="255" value="${esc(b.title)}"></label>
+      <label><span>ISBN</span><input name="isbn" required maxlength="20" value="${esc(b.isbn)}"></label>
+      <label><span>Published year</span><input name="year" type="number" min="0" value="${esc(b.publishedYear)}"></label>
+      <label><span>Description</span><textarea name="description" maxlength="2000">${esc(b.description)}</textarea></label>
+      <label><span>Authors (at least one)</span></label>${checks("author", authors, new Set(b.authors.map((a) => a.id)))}
+      <label style="margin-top:10px"><span>Genres</span></label>${checks("genre", genres, new Set(b.genres.map((g) => g.id)))}
+      <div class="error"></div>
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn primary" data-action="save" type="submit">${book ? "Save" : "Create"}</button></div>`, {
+      save: async (form) => {
+        const authorIds = checkedIds(form, "author");
+        if (!authorIds.length) return dialogError(form, "Pick at least one author.");
+        const body = {
+          title: form.title.value.trim(), isbn: form.isbn.value.trim(), authorIds, genreIds: checkedIds(form, "genre"),
+          publishedYear: form.year.value === "" ? null : Number(form.year.value),
+          description: form.description.value.trim() || null,
+        };
+        try {
+          await (book ? api("PUT", `/api/books/${book.id}`, body) : api("POST", "/api/books", body));
+        } catch (error) { return dialogError(form, describe(error, "A book with this ISBN may already exist.")); }
+        toast(book ? "Book saved." : "Book created.");
+        this.load();
+      },
+    });
+  },
+
+  price(book) {
+    openDialog(`
+      <h3>Price · ${esc(book.title)}</h3>
+      <p class="muted">${book.price ? `Current price: ${money(book.price)}` : "Not for sale right now."}</p>
+      <label><span>New price (EUR)</span><input name="amount" type="number" min="0" step="0.01" required value="${book.price ? Number(book.price.amount).toFixed(2) : ""}"></label>
+      <div class="error"></div>
+      <div class="dialog-actions">
+        ${book.price ? `<button class="btn danger" data-action="remove" type="button">Take off sale</button>` : ""}
+        <span class="spacer"></span>
+        <button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn primary" data-action="save" type="submit">Set price</button></div>`, {
+      save: async (form) => {
+        try { await api("PUT", `/api/books/${book.id}/price`, { amount: Number(form.amount.value) }); }
+        catch (error) { return dialogError(form, describe(error)); }
+        toast("Price updated."); this.load();
+      },
+      remove: async (form) => {
+        try { await api("DELETE", `/api/books/${book.id}/price`); }
+        catch (error) { return dialogError(form, describe(error)); }
+        toast("Taken off sale."); this.load();
+      },
+    });
+  },
+
+  stock(book) {
+    const qty = this.stockLevels.get(book.id) ?? 0;
+    openDialog(`
+      <h3>Stock · ${esc(book.title)}</h3>
+      <p>In stock: <strong>${qty}</strong></p>
+      <label><span>Quantity</span><input name="quantity" type="number" min="1" step="1" required value="1"></label>
+      <div class="error"></div>
+      <div class="dialog-actions">
+        <button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn" data-action="withdraw" type="button" data-validate>Withdraw</button>
+        <button class="btn primary" data-action="restock" type="submit">Restock</button></div>`, {
+      restock: async (form) => {
+        try { await api("POST", `/api/inventory/${book.id}/restock`, { quantity: Number(form.quantity.value) }); }
+        catch (error) { return dialogError(form, describe(error)); }
+        toast(`Added ${form.quantity.value}.`); this.load();
+      },
+      withdraw: async (form) => {
+        try { await api("POST", `/api/inventory/${book.id}/withdraw`, { quantity: Number(form.quantity.value) }); }
+        catch (error) { return dialogError(form, describe(error, `Only ${qty} in stock.`)); }
+        toast(`Withdrew ${form.quantity.value}.`); this.load();
+      },
+    });
+  },
+
+  async history(book) {
+    let periods;
+    try { periods = await fetchAll(`/api/books/${book.id}/price-history`); }
+    catch (error) { toast(describe(error), true); return; }
+    openDialog(`
+      <h3>Price history · ${esc(book.title)}</h3>
+      ${periods.length ? `<div class="table-wrap"><table><thead><tr><th class="num">Price</th><th>From</th><th>Until</th></tr></thead><tbody>
+        ${periods.map((p) => `<tr><td class="num">${money(p.price)}</td><td>${when(p.from)}</td><td>${p.until ? when(p.until) : `<span class="muted">current</span>`}</td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="muted">Never priced.</p>`}
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Close</button></div>`);
+  },
+
+  delete(book) {
+    const qty = this.stockLevels.get(book.id) ?? 0;
+    const remove = async (form) => {
+      try { await api("DELETE", `/api/books/${book.id}`); }
+      catch (error) { return dialogError(form, describe(error, "The book still has copies in stock.")); }
+      toast(`Deleted “${book.title}”.`); this.load();
+    };
+    openDialog(`
+      <h3>Delete “${esc(book.title)}”?</h3>
+      <p>This removes the book from the catalog. It can't be undone.</p>
+      ${qty > 0 ? `<div class="notice">${qty} ${qty === 1 ? "copy is" : "copies are"} in stock, so the book can't be deleted as is.
+        Withdraw the stock first, or do both in one step.</div>` : ""}
+      <div class="error"></div>
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Cancel</button>
+        ${qty > 0
+          ? `<button class="btn danger" data-action="withdrawAndDelete" type="button">Withdraw ${qty} and delete</button>`
+          : `<button class="btn danger" data-action="remove" type="button">Delete</button>`}</div>`, {
+      remove,
+      withdrawAndDelete: async (form) => {
+        try { await api("POST", `/api/inventory/${book.id}/withdraw`, { quantity: qty }); }
+        catch (error) { this.load(); return dialogError(form, describe(error, "Stock changed meanwhile. Close and try again.")); }
+        return remove(form);
+      },
+    });
+  },
+};
+
+// ---------- authors ----------
+const Authors = {
+  page: 0,
+  render() {
+    $("#view").innerHTML = `
+      <div class="toolbar"><span class="spacer"></span><button class="btn primary" id="new-author">New author</button></div>
+      <div id="authors-table" class="muted">Loading…</div>`;
+    $("#new-author").onclick = () => this.edit(null);
+    this.load();
+  },
+  async load() {
+    const target = $("#authors-table");
+    await load(target, async () => {
+      const data = await api("GET", `/api/authors?page=${this.page}&size=20`);
+      this.items = new Map(data.content.map((a) => [a.id, a]));
+      target.className = "";
+      target.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Favorite genres</th><th></th></tr></thead><tbody>
+        ${data.content.map((a) => `<tr data-id="${a.id}"><td><strong>${esc(a.name)}</strong></td>
+          <td>${a.favoriteGenres.map((g) => `<span class="tag">${esc(g.name)}</span>`).join("") || `<span class="muted">none</span>`}</td>
+          <td class="actions"><button class="btn" data-act="edit">Edit</button>
+            <button class="btn" data-act="books">Books</button>
+            <button class="btn danger" data-act="delete">Delete</button></td></tr>`).join("")}
+      </tbody></table></div>`;
+      target.append(pager(data.page, (p) => { this.page = p; this.load(); }));
+      target.querySelector("tbody").onclick = (e) => {
+        const b = e.target.closest("[data-act]");
+        if (b) this[b.dataset.act](this.items.get(Number(b.closest("tr").dataset.id)));
+      };
+    });
+  },
+  books(author) {
+    Books.query = { title: "", author: author.name, page: 0 };
+    showTab("books");
+  },
+  async edit(author) {
+    let genres;
+    try { genres = await fetchAll("/api/genres"); } catch (error) { toast(describe(error), true); return; }
+    openDialog(`
+      <h3>${author ? "Edit author" : "New author"}</h3>
+      <label><span>Name</span><input name="name" required value="${esc(author?.name)}"></label>
+      <label><span>Favorite genres</span></label>${checks("genre", genres, new Set((author?.favoriteGenres || []).map((g) => g.id)))}
+      <div class="error"></div>
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn primary" data-action="save" type="submit">${author ? "Save" : "Create"}</button></div>`, {
+      save: async (form) => {
+        const body = { name: form.name.value.trim(), favoriteGenreIds: checkedIds(form, "genre") };
+        try { await (author ? api("PUT", `/api/authors/${author.id}`, body) : api("POST", "/api/authors", body)); }
+        catch (error) { return dialogError(form, describe(error)); }
+        toast(author ? "Author saved." : "Author created."); this.load();
+      },
+    });
+  },
+  delete(author) {
+    openDialog(`
+      <h3>Delete “${esc(author.name)}”?</h3><p>It can't be undone.</p><div class="error"></div>
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn danger" data-action="remove" type="button">Delete</button></div>`, {
+      remove: async (form) => {
+        try { await api("DELETE", `/api/authors/${author.id}`); }
+        catch (error) { return dialogError(form, describe(error, "This author still has books. Delete or reassign them first.")); }
+        toast("Author deleted."); this.load();
+      },
+    });
+  },
+};
+
+// ---------- genres ----------
+const Genres = {
+  page: 0,
+  render() {
+    $("#view").innerHTML = `
+      <div class="toolbar"><span class="spacer"></span><button class="btn primary" id="new-genre">New genre</button></div>
+      <div id="genres-table" class="muted">Loading…</div>`;
+    $("#new-genre").onclick = () => this.edit(null);
+    this.load();
+  },
+  async load() {
+    const target = $("#genres-table");
+    await load(target, async () => {
+      const data = await api("GET", `/api/genres?page=${this.page}&size=20`);
+      this.items = new Map(data.content.map((g) => [g.id, g]));
+      target.className = "";
+      target.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Name</th><th></th></tr></thead><tbody>
+        ${data.content.map((g) => `<tr data-id="${g.id}"><td>${esc(g.name)}</td>
+          <td class="actions"><button class="btn" data-act="edit">Rename</button>
+            <button class="btn danger" data-act="delete">Delete</button></td></tr>`).join("")}
+      </tbody></table></div>`;
+      target.append(pager(data.page, (p) => { this.page = p; this.load(); }));
+      target.querySelector("tbody").onclick = (e) => {
+        const b = e.target.closest("[data-act]");
+        if (b) this[b.dataset.act](this.items.get(Number(b.closest("tr").dataset.id)));
+      };
+    });
+  },
+  edit(genre) {
+    openDialog(`
+      <h3>${genre ? "Rename genre" : "New genre"}</h3>
+      <label><span>Name</span><input name="name" required value="${esc(genre?.name)}"></label>
+      <div class="error"></div>
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn primary" data-action="save" type="submit">${genre ? "Rename" : "Create"}</button></div>`, {
+      save: async (form) => {
+        const body = { name: form.name.value.trim() };
+        try { await (genre ? api("PUT", `/api/genres/${genre.id}`, body) : api("POST", "/api/genres", body)); }
+        catch (error) { return dialogError(form, describe(error, "A genre with this name already exists.")); }
+        toast(genre ? "Genre renamed." : "Genre created."); this.load();
+      },
+    });
+  },
+  delete(genre) {
+    openDialog(`
+      <h3>Delete “${esc(genre.name)}”?</h3><p>It's also removed from authors' favorites. It can't be undone.</p><div class="error"></div>
+      <div class="dialog-actions"><button class="btn" data-action="cancel" type="button">Cancel</button>
+        <button class="btn danger" data-action="remove" type="button">Delete</button></div>`, {
+      remove: async (form) => {
+        try { await api("DELETE", `/api/genres/${genre.id}`); }
+        catch (error) { return dialogError(form, describe(error, "Books still use this genre. Remove it from them first.")); }
+        toast("Genre deleted."); this.load();
+      },
+    });
+  },
+};
+
+// ---------- orders ----------
+const Orders = {
+  page: 0,
+  render() {
+    $("#view").innerHTML = `<div class="toolbar"><span class="muted">All customers' orders, read-only.</span>
+      <span class="spacer"></span><button class="btn" id="refresh">Refresh</button></div><div id="orders-table" class="muted">Loading…</div>`;
+    $("#refresh").onclick = () => this.load();
+    this.load();
+  },
+  async load() {
+    const target = $("#orders-table");
+    await load(target, async () => {
+      const data = await api("GET", `/api/orders/all?page=${this.page}&size=20`);
+      target.className = "";
+      if (!data.content.length) { target.innerHTML = `<div class="muted">No orders yet.</div>`; return; }
+      target.innerHTML = `<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>Placed</th><th>Customer</th><th>Status</th><th>Items</th><th class="num">Total</th></tr></thead><tbody>
+        ${data.content.map((o) => `<tr><td class="num">${o.id}</td><td>${when(o.createdAt)}</td><td>${esc(o.customer)}</td>
+          <td><span class="status">${esc(o.status)}</span>${o.reason ? `<div class="muted">${esc(o.reason)}</div>` : ""}</td>
+          <td>${o.lines.map((l) => `${l.quantity} × ${esc(l.title)} <span class="muted">(${money(l.unitPrice)})</span>`).join("<br>")}</td>
+          <td class="num">${money(o.total)}</td></tr>`).join("")}
+      </tbody></table></div>`;
+      target.append(pager(data.page, (p) => { this.page = p; this.load(); }));
+    });
+  },
+};
+
+renderLogin();
+</script>
+</body>
+</html>
