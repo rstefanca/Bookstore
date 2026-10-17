@@ -1,10 +1,8 @@
 package cz.codingmonkey.bookstore.recommendation;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
-import java.sql.Array;
-import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,9 +10,10 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Stores one embedding per book in {@code book_embedding} (pgvector) and finds nearest neighbours by cosine distance.
+ * The stored title and authors aren't used for recommendations; they make the table readable when debugging.
  */
 @Repository
-class BookEmbeddings {
+class BookEmbeddings implements Recommendations {
 
     static final int DIMENSIONS = 384;
 
@@ -67,22 +66,24 @@ class BookEmbeddings {
                 Boolean.class, bookId.value()));
     }
 
+    @Override
+    public Optional<List<Recommendation>> similarTo(BookId bookId, int limit) {
+        return exists(bookId) ? Optional.of(findSimilar(bookId, limit)) : Optional.empty();
+    }
+
     /** The books whose embeddings are closest to the given book's, most similar first, excluding the book itself. */
-    List<SimilarBook> findSimilar(BookId bookId, int limit) {
+    List<Recommendation> findSimilar(BookId bookId, int limit) {
         // The target vector is an uncorrelated scalar subquery, evaluated once, so the ORDER BY can use the HNSW
         // index. <=> is pgvector's cosine distance; similarity = 1 - distance.
         String target = "(SELECT embedding FROM book_embedding WHERE book_id = ? AND NOT deleted)";
         return jdbc.query("""
-                SELECT book_id, title, authors, 1 - (embedding <=> %1$s) AS similarity
+                SELECT book_id, 1 - (embedding <=> %1$s) AS similarity
                 FROM book_embedding
                 WHERE NOT deleted AND book_id <> ?
                 ORDER BY embedding <=> %1$s
                 LIMIT ?
-                """.formatted(target), (rs, row) -> new SimilarBook(
-                        new BookId(rs.getLong("book_id")),
-                        rs.getString("title"),
-                        toList(rs.getArray("authors")),
-                        rs.getDouble("similarity")),
+                """.formatted(target), (rs, row) -> new Recommendation(
+                        new BookId(rs.getLong("book_id")), rs.getDouble("similarity")),
                 bookId.value(), bookId.value(), bookId.value(), limit);
     }
 
@@ -90,9 +91,5 @@ class BookEmbeddings {
         return IntStream.range(0, embedding.length)
                 .mapToObj(i -> Float.toString(embedding[i]))
                 .collect(Collectors.joining(",", "[", "]"));
-    }
-
-    private static List<String> toList(Array array) throws SQLException {
-        return Arrays.asList((String[]) array.getArray());
     }
 }

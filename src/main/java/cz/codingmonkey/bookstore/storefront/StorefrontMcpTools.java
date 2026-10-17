@@ -15,7 +15,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 /**
- * Read-only MCP tools for finding books the way customers see them: catalog details together with the price and rating.
+ * Read-only MCP tools for finding books the way customers see them: catalog details together with the price and
+ * rating, and similar books to recommend.
  */
 @Component
 class StorefrontMcpTools {
@@ -67,6 +68,26 @@ class StorefrontMcpTools {
                     openWorldHint = false))
     StorefrontBook getBook(@McpToolParam(description = "The book's id") long bookId) {
         return storefront.findBook(new BookId(bookId));
+    }
+
+    @McpTool(name = "find_similar_books", title = "Find similar books", description = """
+            Recommends books similar to the given one that are for sale, based on title, authors, genres and \
+            description, most similar first. Each result has the same fields as search_books (id, title, authors, \
+            genres, ISBN, publication year, description, price and rating; price is never null here) plus a \
+            similarity from -1 to 1 (higher is more similar; above about 0.6 usually means a shared topic). Books \
+            that aren't for sale are left out, so there can be fewer results than the limit.""",
+            annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
+                    openWorldHint = false))
+    List<SimilarBook> findSimilarBooks(
+            @McpToolParam(description = "Id of the book to find similar books for") long bookId,
+            @McpToolParam(required = false, description = "Maximum number of books, 1-20; default 5")
+            @Nullable Integer limit) {
+        int max = limit == null ? StorefrontController.DEFAULT_SIMILAR : limit;
+        if (max < 1 || max > StorefrontController.MAX_SIMILAR) {
+            throw new IllegalArgumentException(
+                    "limit must be between 1 and " + StorefrontController.MAX_SIMILAR + ", was " + limit);
+        }
+        return storefront.findSimilar(new BookId(bookId), max);
     }
 
     private static int checkLimit(@Nullable Integer limit) {

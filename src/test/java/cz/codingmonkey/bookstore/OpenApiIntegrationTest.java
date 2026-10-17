@@ -69,6 +69,19 @@ class OpenApiIntegrationTest {
     }
 
     @Test
+    void similarBooksAreStorefrontBooksWithASimilarity() {
+        String similar = "$.paths['/api/books/{id}/similar'].get";
+        spec()
+                .jsonPath(similar + ".tags[0]").isEqualTo("Books")
+                .jsonPath(similar + ".responses['200'].content['application/json'].schema.items['$ref']")
+                .isEqualTo("#/components/schemas/SimilarBook")
+                .jsonPath("$.components.schemas.SimilarBook.properties.id.type").isEqualTo("integer")
+                .jsonPath("$.components.schemas.SimilarBook.properties.price").exists()
+                .jsonPath("$.components.schemas.SimilarBook.properties.rating").exists()
+                .jsonPath("$.components.schemas.SimilarBook.properties.similarity").exists();
+    }
+
+    @Test
     void yamlAndSwaggerUiAreOpen() {
         anonymous.get().uri("/v3/api-docs.yaml").exchange().expectStatus().isOk();
         anonymous.get().uri("/swagger-ui.html").exchange().expectStatus().is3xxRedirection();
