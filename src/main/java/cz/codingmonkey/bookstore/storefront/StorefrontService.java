@@ -68,8 +68,11 @@ class StorefrontService {
      * same way; both combine with the price range and the other filters. The caller prepares the page for the
      * ordering ({@link BookOrdering#pageOf}).
      */
-    Page<StorefrontBook> findBooks(BookSearch search, PriceRange priceRange, @Nullable BigDecimal minRating,
-            BookOrdering ordering, Pageable page) {
+    Page<StorefrontBook> findBooks(BookSearch search,
+                                   PriceRange priceRange,
+                                   @Nullable BigDecimal minRating,
+                                   BookOrdering ordering,
+                                   Pageable page) {
         if (!priceRange.isAny()) {
             search = search.matching(prices.pricedBetween(priceRange.min(), priceRange.max()));
         }
@@ -81,10 +84,13 @@ class StorefrontService {
         }
         Page<BookDetails> books = catalog.findBooks(search, page);
         List<BookId> ids = books.map(BookDetails::id).getContent();
+
         CompletableFuture<Map<BookId, Money>> bookPrices =
                 CompletableFuture.supplyAsync(() -> prices.pricesOf(ids), queries);
+
         CompletableFuture<Map<BookId, RatingSummary>> bookRatings =
                 CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+
         Map<BookId, Money> pricesById = join(bookPrices);
         Map<BookId, RatingSummary> ratingsById = join(bookRatings);
         return books.map(book -> StorefrontBook.of(book, pricesById.get(book.id()),

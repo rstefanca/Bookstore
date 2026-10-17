@@ -50,11 +50,13 @@ class PersonalPicksService {
                 return new Batch(nearest.size(), nearest);
             }));
         }
-        return new PersonalPicks(false, fill(limit, (offset, count) -> {
+
+        List<PickedBook> pickedBooks = fill(limit, (offset, count) -> {
             List<BookId> topRated = ratings.topRated(offset, count);
             List<BookId> candidates = topRated.stream().filter(id -> !excluded.contains(id)).toList();
             return new Batch(topRated.size(), candidates.isEmpty() ? List.of() : embeddings.findLive(candidates));
-        }));
+        });
+        return new PersonalPicks(false, pickedBooks);
     }
 
     /**

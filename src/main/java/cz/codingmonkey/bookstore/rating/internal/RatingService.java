@@ -42,7 +42,7 @@ class RatingService implements Ratings {
     @Override
     public Map<BookId, RatingSummary> summariesOf(Collection<BookId> bookIds) {
         Map<BookId, Map<Integer, Integer>> counts = bookIds.isEmpty() ? Map.of() : ratings.countStars(bookIds);
-        Map<BookId, RatingSummary> summaries = new HashMap<>();
+        Map<BookId, RatingSummary> summaries = new HashMap<>(bookIds.size());
         for (BookId bookId : bookIds) {
             Map<Integer, Integer> stars = counts.get(bookId);
             summaries.put(bookId, stars == null ? RatingSummary.NONE : RatingSummary.of(stars));
