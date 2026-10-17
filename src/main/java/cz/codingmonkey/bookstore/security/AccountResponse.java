@@ -3,6 +3,8 @@ package cz.codingmonkey.bookstore.security;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * An account.
+ *
  * @param firstName {@code null} only for accounts created before names were introduced
  * @param lastName  likewise
  */

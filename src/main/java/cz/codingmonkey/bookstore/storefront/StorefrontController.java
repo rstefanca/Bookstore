@@ -1,10 +1,13 @@
 package cz.codingmonkey.bookstore.storefront;
 
-import java.math.BigDecimal;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.math.BigDecimal;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +24,9 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/books")
+@Tag(name = "Books", description = """
+        The catalog's books with their current price. Anyone can browse; adding, changing and deleting books needs \
+        `STAFF`. A book is for sale while it has a price (see Prices); stock is kept separately (see Inventory).""")
 class StorefrontController {
 
     private final StorefrontService service;
@@ -30,10 +36,21 @@ class StorefrontController {
     }
 
     /**
-     * Books sorted by title; filters are optional and combine with AND. Price bounds are inclusive, in the store
-     * currency. A {@code sort} parameter is ignored.
+     * Lists books with their prices, sorted by title.
+     * <p>
+     * All filters are optional and combine with AND. A price bound leaves out books that aren't for sale.
+     *
+     * @param title    part of the title, in any case
+     * @param author   part of an author's name, in any case; matches any of the book's authors
+     * @param authorId only books by this author
+     * @param genreId  only books in this genre
+     * @param minPrice lowest price, inclusive, in the store currency
+     * @param maxPrice highest price, inclusive, in the store currency
      */
     @GetMapping
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "A page of books")
+    @ApiResponse(responseCode = "400", description = "A price bound is negative, or minPrice is above maxPrice")
     PagedModel<StorefrontBook> list(@RequestParam(required = false) @Nullable String title,
             @RequestParam(required = false) @Nullable String author,
             @RequestParam(required = false) @Nullable AuthorId authorId,
@@ -46,7 +63,11 @@ class StorefrontController {
                 new PriceRange(minPrice, maxPrice), byTitle));
     }
 
+    /** Returns a book with its price. */
     @GetMapping("/{id}")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "The book, with its price")
+    @ApiResponse(responseCode = "404", description = "No book with this id")
     StorefrontBook get(@PathVariable BookId id) {
         return service.findBook(id);
     }

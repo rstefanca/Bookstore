@@ -9,6 +9,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * A book in the catalog, without its price.
+ *
  * @param authors in credited order
  * @param genres  sorted by name
  */

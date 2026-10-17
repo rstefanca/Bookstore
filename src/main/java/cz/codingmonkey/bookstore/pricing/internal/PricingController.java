@@ -1,6 +1,9 @@
 package cz.codingmonkey.bookstore.pricing.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -23,6 +26,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Tag(name = "Prices", description = """
+        Each book's list price, in the store currency (EUR). A book without a price is in the catalog but not for \
+        sale. Anyone can read current prices; setting them and reading the price history need `STAFF`.""")
 class PricingController {
 
     private final PricingService service;
@@ -31,26 +37,40 @@ class PricingController {
         this.service = service;
     }
 
-    /** 404 means the book has no price, i.e. is not for sale (or doesn't exist). */
+    /** Returns a book's current price. */
     @GetMapping("/api/books/{bookId}/price")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "The price")
+    @ApiResponse(responseCode = "404", description = "The book has no price (isn't for sale), or doesn't exist")
     PriceResponse get(@PathVariable BookId bookId) {
         return service.findByBookId(bookId);
     }
 
+    /** Sets or changes a book's price, which puts it on sale. The change is recorded in the price history. */
     @PutMapping("/api/books/{bookId}/price")
+    @ApiResponse(responseCode = "200", description = "The new price")
+    @ApiResponse(responseCode = "400", description = """
+            The amount isn't positive or has more than 2 decimal places, or the currency isn't the store currency""")
+    @ApiResponse(responseCode = "404", description = "No book with this id")
+    @ApiResponse(responseCode = "409", description = "The price was changed by another request at the same time")
     PriceResponse set(@PathVariable BookId bookId, @Valid @RequestBody PriceRequest request) {
         return service.setPrice(bookId, request.amount(), request.currency());
     }
 
+    /** Removes a book's price, which takes it off sale. The price history is kept. */
     @DeleteMapping("/api/books/{bookId}/price")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ApiResponse(responseCode = "204", description = "Removed; the book is no longer for sale")
+    @ApiResponse(responseCode = "404", description = "The book has no price")
     void remove(@PathVariable BookId bookId) {
         service.removePrice(bookId);
     }
 
     /**
-     * The book's price history, newest first; each period has a price, {@code from} and {@code until} ({@code null}
-     * for the current price). Empty if the book never had a price.
+     * Lists the periods during which a book had each price, newest first.
+     * <p>
+     * The current price's period has no {@code until}. A gap between periods means the book wasn't for sale. The
+     * list is empty if the book never had a price, and is kept after the book is deleted.
      */
     @GetMapping("/api/books/{bookId}/price-history")
     PagedModel<PricePeriodResponse> history(@PathVariable BookId bookId, Pageable page) {
@@ -58,10 +78,15 @@ class PricingController {
     }
 
     /**
-     * Prices of books for sale, by book id. {@code ?bookId=1&bookId=2} limits it to those books, e.g. to show prices
-     * next to a page of catalog results.
+     * Lists the current prices of books for sale, sorted by book id.
+     * <p>
+     * Books that aren't for sale are left out.
+     *
+     * @param bookIds only these books, e.g. {@code ?bookId=1&bookId=2} to show prices next to a page of catalog
+     *                results
      */
     @GetMapping("/api/prices")
+    @SecurityRequirements
     PagedModel<PriceResponse> list(@RequestParam(name = "bookId", required = false) @Nullable List<BookId> bookIds,
             Pageable page) {
         var byBookId = PageRequest.of(page.getPageNumber(), page.getPageSize(), Sort.by("bookId"));

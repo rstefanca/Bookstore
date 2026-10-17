@@ -14,6 +14,9 @@ final class OrderingResponses {
     }
 
     /**
+     * A book in the cart.
+     *
+     * @param title     {@code null} if the book no longer exists
      * @param unitPrice current price; {@code null} if the book is no longer for sale (checkout will refuse it)
      * @param lineTotal {@code null} likewise
      */
@@ -21,14 +24,31 @@ final class OrderingResponses {
             @Nullable Money lineTotal) {
     }
 
-    /** @param total of the items that are for sale */
+    /**
+     * The customer's cart.
+     *
+     * @param total of the items that are for sale; {@code null} when none is (e.g. an empty cart)
+     */
     record CartView(List<CartItem> items, @Nullable Money total) {
     }
 
+    /**
+     * A book in an order, with the title and price it had at checkout.
+     *
+     * @param unitPrice price of one copy
+     */
     record OrderLineView(BookId bookId, String title, int quantity, Money unitPrice) {
     }
 
-    /** @param reason why the order was rejected, otherwise {@code null} */
+    /**
+     * An order.
+     *
+     * @param customer  the customer's username
+     * @param status    {@code PENDING}, {@code AWAITING_PAYMENT}, {@code CONFIRMED}, {@code REJECTED} or
+     *                  {@code CANCELLED}
+     * @param reason    why the order was rejected, otherwise {@code null}
+     * @param createdAt when the order was placed
+     */
     record OrderView(
             OrderId id,
             String customer,

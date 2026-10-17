@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.security;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -10,28 +11,36 @@ final class AccountRequests {
     private AccountRequests() {
     }
 
+    /** An account created by an admin. */
     record NewAccount(
-            @NotBlank String username,
-            @NotBlank @Size(max = 100) String firstName,
-            @NotBlank @Size(max = 100) String lastName,
-            @NotNull String password,
-            @NotNull Role role) {
+            @Schema(example = "sam.staff") @NotBlank String username,
+            @Schema(example = "Sam") @NotBlank @Size(max = 100) String firstName,
+            @Schema(example = "Staff") @NotBlank @Size(max = 100) String lastName,
+            @Schema(example = "correct-horse-battery") @NotNull String password,
+            @Schema(example = "STAFF") @NotNull Role role) {
     }
 
     /** Self sign-up: no role, it is always {@link Role#CUSTOMER}. */
     record Registration(
-            @NotBlank String username,
-            @NotBlank @Size(max = 100) String firstName,
-            @NotBlank @Size(max = 100) String lastName,
-            @NotNull String password) {
+            @Schema(example = "anna.novak") @NotBlank String username,
+            @Schema(example = "Anna") @NotBlank @Size(max = 100) String firstName,
+            @Schema(example = "Novák") @NotBlank @Size(max = 100) String lastName,
+            @Schema(example = "correct-horse-battery") @NotNull String password) {
     }
 
-    record Names(@NotBlank @Size(max = 100) String firstName, @NotBlank @Size(max = 100) String lastName) {
+    /** A person's name. */
+    record Names(
+            @Schema(example = "Anna") @NotBlank @Size(max = 100) String firstName,
+            @Schema(example = "Novák") @NotBlank @Size(max = 100) String lastName) {
     }
 
-    record NewPassword(@NotNull String password) {
+    /** A password set by an admin. */
+    record NewPassword(@Schema(example = "correct-horse-battery") @NotNull String password) {
     }
 
-    record PasswordChange(@NotNull String currentPassword, @NotNull String newPassword) {
+    /** Your new password, confirmed with the current one. */
+    record PasswordChange(
+            @NotNull String currentPassword,
+            @Schema(example = "correct-horse-battery") @NotNull String newPassword) {
     }
 }

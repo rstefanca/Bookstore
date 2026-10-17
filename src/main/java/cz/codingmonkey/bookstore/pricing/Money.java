@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.pricing;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Embeddable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -11,7 +12,8 @@ import java.util.Objects;
  * (2 for EUR), so equal amounts are equal regardless of how they were written ("12.9" and "12.90").
  */
 @Embeddable
-public record Money(BigDecimal amount, Currency currency) {
+public record Money(@Schema(example = "12.90") BigDecimal amount,
+        @Schema(description = "ISO 4217 code", example = "EUR") Currency currency) {
 
     public Money {
         Objects.requireNonNull(amount, "amount");

@@ -42,20 +42,22 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 
     /** One invalid field or parameter of a request. */
-    record InvalidValue(String field, @Nullable String message) {
+    record InvalidValue(@Schema(example = "title") String field,
+            @Schema(example = "must not be blank") @Nullable String message) {
     }
 
     /**
      * A problem detail as it appears in JSON, for the OpenAPI spec: {@link ProblemDetail} keeps extra members such
-     * as {@code errors} in a map that is written inline.
+     * as {@code errors} in a map that is written inline. There's no {@code type}: it is always the default,
+     * {@code about:blank}, which is left out.
      */
     @Schema(name = "Problem", description = "RFC 9457 problem detail")
     record ProblemJson(
-            @Schema(description = "Left out when it is about:blank") @Nullable URI type,
-            @Schema(description = "HTTP reason phrase") String title,
-            int status,
-            @Schema(description = "What went wrong, for the caller") @Nullable String detail,
-            @Schema(description = "The request path") URI instance,
+            @Schema(description = "HTTP reason phrase", example = "Not Found") String title,
+            @Schema(example = "404") int status,
+            @Schema(description = "What went wrong, for the caller", example = "Book 42 not found")
+            @Nullable String detail,
+            @Schema(description = "The request path", example = "/api/books/42") URI instance,
             @Schema(description = "Only for invalid requests: each invalid field or parameter")
             @Nullable List<InvalidValue> errors) {
     }

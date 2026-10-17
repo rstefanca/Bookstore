@@ -5,6 +5,8 @@ import cz.codingmonkey.bookstore.pricing.Money;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * A book's current price.
+ *
  * @param price {@code null} if the book has no price, i.e. is not for sale
  */
 public record PriceResponse(BookId bookId, @Nullable Money price) {

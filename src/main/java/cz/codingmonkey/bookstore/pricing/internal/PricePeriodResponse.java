@@ -5,6 +5,8 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * A period during which a book had one price.
+ *
  * @param from  when the price took effect
  * @param until when it stopped applying; {@code null} for the current price
  */

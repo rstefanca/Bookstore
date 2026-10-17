@@ -1,6 +1,8 @@
 package cz.codingmonkey.bookstore.audit;
 
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -18,9 +20,19 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/audit")
+@Tag(name = "Audit", description = """
+        Who changed what: an entry for every change to books, authors, stock and prices, and for every step of an \
+        order. Admins only (`ADMIN`).""")
 class AuditController {
 
-    /** @param actor username of whoever made the change; {@code null} for changes without a signed-in user */
+    /**
+     * A recorded change.
+     *
+     * @param action      what happened, in upper snake case, e.g. {@code BOOK_CREATED}, {@code PRICE_CHANGED} or
+     *                    {@code ORDER_CONFIRMED}
+     * @param actor       username of whoever made the change; {@code null} for changes without a signed-in user
+     * @param description the change in words, e.g. "Price changed from 10.00 EUR to 8.50 EUR"
+     */
     record AuditEntryResponse(AuditEntryId id, String action, SubjectResponse subject, @Nullable String actor,
             String description, Instant occurredAt) {
 
@@ -41,7 +53,18 @@ class AuditController {
         this.repository = repository;
     }
 
+    /**
+     * Lists audit entries, newest first.
+     * <p>
+     * To see one subject's history, give both {@code subjectType} and {@code subjectId}, e.g.
+     * {@code ?subjectType=ORDER&subjectId=7} for every step of one purchase.
+     *
+     * @param subjectType the kind of subject, in upper snake case, e.g. {@code BOOK}, {@code AUTHOR} or {@code ORDER}
+     * @param subjectId   the subject's id
+     */
     @GetMapping
+    @ApiResponse(responseCode = "200", description = "A page of audit entries")
+    @ApiResponse(responseCode = "400", description = "Only one of subjectType and subjectId, or an invalid value")
     PagedModel<AuditEntryResponse> list(@RequestParam(required = false) @Nullable String subjectType,
             @RequestParam(required = false) @Nullable Long subjectId,
             @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters,

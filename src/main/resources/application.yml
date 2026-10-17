@@ -70,8 +70,16 @@ management:
 
 springdoc:
   # OpenAPI spec at /v3/api-docs, Swagger UI at /swagger-ui.html; only the REST API (not /mcp or /actuator).
+  # Both are public on purpose (security.SecurityConfiguration); enabled explicitly, which also silences springdoc's
+  # startup warning about running with them on by default.
+  api-docs:
+    enabled: true
   paths-to-match: /api/**
   default-produces-media-type: application/json
+  swagger-ui:
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: alpha
 
 bookstore:
   recommendation:

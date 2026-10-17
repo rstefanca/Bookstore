@@ -86,9 +86,11 @@ no signed-in user.
 - **Actuator**: only `health`, `info`, `metrics` and `prometheus` are exposed (`management.endpoints.web.exposure`).
   Health and its probes are public, the rest is ADMIN-only (`SecurityConfiguration`).
 - **OpenAPI**: springdoc generates `/v3/api-docs` (Swagger UI at `/swagger-ui.html`, both public) from the
-  controllers under `/api/**`. Declare a non-200 success status with `@ResponseStatus` on the method (also when it
-  returns a `ResponseEntity`), so the spec shows it. Typed ids, pages and errors are documented generically
-  (`shared.OpenApiConfiguration`, `shared.ProblemDetailsAdvice`), so new endpoints usually need no OpenAPI code.
+  controllers under `/api/**`, with descriptions from **Javadoc** (therapi): on controller methods (first sentence =
+  summary), `@param`s and request/response records, so write those for API clients. A new endpoint also needs
+  `@ApiResponse` for each specific status, including its success one (springdoc drops the success response
+  otherwise), `@SecurityRequirements` if it is public, and `@ResponseStatus` for a non-200 success. Its controller
+  needs `@Tag`. Typed ids, pages and 400/401/403/problem responses are generic (`shared.OpenApiConfiguration`).
 - **Pagination**: list endpoints return Spring Data pages with a fixed order per endpoint; `sort` is ignored;
   size default 20, max 100.
 - **Virtual threads** serve HTTP requests (`shared.ThreadingConfiguration`).

@@ -258,16 +258,27 @@ like every other path. The build info leaves out the build time, so Gradle can s
 ### OpenAPI spec
 
 springdoc generates the spec at runtime from the controllers, request records and validation annotations. It covers
-only `/api/**`: `/mcp` and `/actuator` are documented above. Adjustments, so the spec matches the JSON:
+only `/api/**`: `/mcp` and `/actuator` are documented above.
+
+The texts come from Javadoc, kept at runtime by therapi-runtime-javadoc: a controller method's first sentence is the
+operation's summary and the rest its description, `@param` describes a request parameter, and a record's Javadoc
+and `@param` tags describe its schema and fields. So that Javadoc is written for API clients. Annotations add what
+Javadoc can't say: `@Tag` (with the group's description) on each controller, `@ApiResponse` for each status an
+operation can answer, `@SecurityRequirements` (empty) on public operations and `@Schema(example = ...)` on request
+fields. The overview at the top of Swagger UI is `src/main/resources/openapi/overview.md`.
+
+Generic parts, so the spec matches the JSON (`shared.OpenApiConfiguration`):
 
 - Typed ids (any `shared.LongId`) are integers, also as path and query parameters, and `Money.currency` is its
-  ISO code (`shared.OpenApiConfiguration`).
+  ISO code.
 - Lists show `page` and `size` (with the default and the cap of 100); `sort` isn't offered, since it's ignored.
-- Success statuses come from `@ResponseStatus` on the controller method (201 for creates, 202 for checkout, 204 for
-  deletes), also where the method returns a `ResponseEntity` to set `Location`.
-- Every operation has a `default` response, `application/problem+json` with the `Problem` schema (see Errors),
+- Every 4xx/5xx response is `application/problem+json` with the `Problem` schema (see Errors); operations with a
+  body also list 400, and those that need a signed-in account 401 and 403. A `default` problem response is
   declared once on `shared.ProblemDetailsAdvice`.
-- The security module declares HTTP Basic. Which role each endpoint needs isn't in the spec; see Security.
+- Success statuses come from `@ResponseStatus` (201 for creates, 202 for checkout, 204 for deletes), also where the
+  method returns a `ResponseEntity` to set `Location`. A method with `@ApiResponse`s for its errors must declare its
+  success response too (without content; springdoc fills in the body schema), or springdoc leaves it out.
+- The security module declares HTTP Basic.
 
 ### Caching
 

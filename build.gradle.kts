@@ -59,6 +59,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${property("springdocVersion")}")
+    // Keeps Javadoc at runtime, so springdoc uses it for operation and schema descriptions (version as in springdoc).
+    implementation("com.github.therapi:therapi-runtime-javadoc:0.15.0")
+    annotationProcessor("com.github.therapi:therapi-runtime-javadoc-scribe:0.15.0")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")

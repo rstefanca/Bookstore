@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * An author.
+ *
  * @param favoriteGenres sorted by name
  */
 public record AuthorResponse(AuthorId id, String name, List<GenreResponse> favoriteGenres) {
