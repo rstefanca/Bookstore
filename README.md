@@ -14,11 +14,11 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Book Catalog | `cz.codingmonkey.bookstore.bookcatalog` | `BookId`, `AuthorId`, `GenreId`, `BookDetails`, `BookSearch`, `BookCondition`, `BookOrder`; `BookCreatedEvent`, `BookUpdatedEvent`, `BookDeletedEvent`, `AuthorCreatedEvent` events; `BookCatalog`; `BookDeletionPolicy` SPI | Books, authors and genres (implementation in `bookcatalog.internal`) |
 | Inventory | `cz.codingmonkey.bookstore.inventory` | `Stock`; `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
 | Pricing | `cz.codingmonkey.bookstore.pricing` | `Money`, `Prices`; `PriceChangedEvent` | List price per book in the store currency (implementation in `pricing.internal`) |
-| Storefront | `cz.codingmonkey.bookstore.storefront` | none | Customer-facing book reads: catalog details plus price |
+| Storefront | `cz.codingmonkey.bookstore.storefront` | none | Customer-facing book reads: catalog details plus price and rating, and similar books for sale |
 | Ordering | `cz.codingmonkey.bookstore.ordering` | `OrderId` | Carts, orders and the order process; blocks deleting books with orders (implementation in `ordering.internal`) |
 | Payment | `cz.codingmonkey.bookstore.payment` | `PaymentReference`; request/result events | Fake payment provider: charges, declines, refunds |
 | Audit | `cz.codingmonkey.bookstore.audit` | none | Records an audit trail of every event that implements `shared.Auditable` (book, author, stock, price and order events) |
-| Recommendations | `cz.codingmonkey.bookstore.recommendation` | none | Similar-book suggestions and customers' personal picks, from text embeddings stored with pgvector |
+| Recommendations | `cz.codingmonkey.bookstore.recommendation` | `Recommendations`, `Recommendation` | Similar-book suggestions (book ids and similarity) from text embeddings stored with pgvector |
 | Ratings | `cz.codingmonkey.bookstore.rating` | `Ratings`, `RatingSummary` | Customers' 1-5 star ratings of books and per-book summaries (implementation in `rating.internal`) |
 
 ### Security
@@ -92,7 +92,24 @@ Book list filters (`author`, `authorId`, `genreId`) combine with AND.
 
 ### Recommendations
 
-`GET /api/books/{id}/similar` suggests books similar to a given one. The recommendation module embeds each book's
+`GET /api/books/{id}/similar` suggests books similar to a given one that customers can buy. Each entry is a
+storefront book (`id`, `title`, `authors`, `genres`, `isbn`, `publishedYear`, `description`, `price`, `rating`)
+plus `similarity`, the cosine similarity from -1 to 1 (above about 0.6 usually means a shared topic):
+
+```json
+[{"id": 2, "title": "Children of Dune", "authors": [{"id": 1, "name": "Frank Herbert"}], "genres": [...],
+  "isbn": "9780441104024", "publishedYear": 1976, "description": "...",
+  "price": {"amount": 9.99, "currency": "EUR"}, "rating": {"average": 4.0, "count": 1, "stars": {...}},
+  "similarity": 0.81}]
+```
+
+Only books for sale are recommended, so `price` is never null; the book asked about doesn't need a price. The
+recommendation module only knows books by id: its public `Recommendations` API returns ids with their similarity,
+and the storefront takes the closest `4 × limit`, keeps those with a price (one batch lookup), cuts the list to
+`limit` and then loads their details and rating summaries in parallel. When most of the nearest books aren't for
+sale, fewer than `limit` come back. The MCP tool `find_similar_books` returns the same list.
+
+The recommendation module embeds each book's
 title, authors, genres and description with all-MiniLM-L6-v2 (384 dimensions), run in-process through Spring AI's ONNX
 `TransformersEmbeddingModel`, so there's no embedding service to operate. Vectors live in the `book_embedding`
 table (pgvector, HNSW index, cosine distance) next to the rest of the data.
@@ -161,11 +178,11 @@ migration time.
 
 ### Storefront
 
-`GET /api/books` and `GET /api/books/{id}` belong to the storefront module, which combines the catalog's book
-details with the current price (`"price": null` means not for sale) and the book's rating summary. It uses only
-the public APIs `BookCatalog`, `Prices` and `Ratings`, so the catalog, pricing and rating modules still don't depend
-on each other. Creating, updating and deleting books
-stays with the catalog (`POST`/`PUT`/`DELETE /api/books`).
+`GET /api/books`, `GET /api/books/{id}` and `GET /api/books/{id}/similar` belong to the storefront module, which
+combines the catalog's book details with the current price (`"price": null` means not for sale) and the book's
+rating summary. It uses only the public APIs `BookCatalog`, `Prices`, `Ratings` and `Recommendations`, so the
+catalog, pricing, rating and recommendation modules still don't depend on each other. Creating, updating and
+deleting books stays with the catalog (`POST`/`PUT`/`DELETE /api/books`).
 
 Every storefront book carries a `rating` summary, never null:
 
@@ -383,7 +400,7 @@ module contributes its own tools with `@McpTool`, and all of them are read-only 
 | `list_authors` | catalog | Authors sorted by name, optional name filter, `limit` 1-50 |
 | `get_author` | catalog | One author by id, with favorite genres |
 | `list_genres` | catalog | All genres, optional name filter |
-| `find_similar_books` | recommendation | Similar books for a book id, `limit` 1-20, default 5 |
+| `find_similar_books` | storefront | Similar books for sale for a book id, with prices and ratings, most similar first; `limit` 1-20, default 5 |
 | `get_book_prices` | pricing | Prices for up to 50 book ids; `price` is null for books not for sale |
 
 Tools take plain numeric ids and return the same JSON as the REST API. Unknown ids and invalid limits come back as
@@ -425,6 +442,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     storefront ──BookCatalog.findBook/findBooks──▶ book
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
     storefront ──Ratings.summaryOf/summariesOf/ratedAtLeast/byRating──▶ rating
+    storefront ──Recommendations.similarTo──────▶ recommendation
 
 A new book has no stock record. One is created on its first restock, so until then `/api/inventory/{bookId}`
 returns 404. Deleting a book whose stock is above 0 returns 409.
@@ -514,7 +532,7 @@ summary.
 | DELETE | /api/books/{id}/price      | Remove the price (take the book off sale) |
 | GET    | /api/books/{id}/price-history | Price periods, newest first (paged); empty if never priced |
 | GET    | /api/prices?bookId=...     | Prices by book id (paged), optionally only for the given books (repeat `bookId`) |
-| GET    | /api/books/{id}/similar?limit=5 | Similar books, most similar first, with `similarity` (cosine, higher is closer); limit 1-20; 404 until the book's embedding exists |
+| GET    | /api/books/{id}/similar?limit=5 | Similar books for sale, most similar first, each with price, rating and `similarity` (cosine, higher is closer); books without a price are left out, so there can be fewer than `limit`; limit 1-20; 404 until the book's embedding exists |
 | GET    | /api/recommendations?limit=10 | Personal picks for the signed-in customer: books similar to those they rated 4-5 stars, leaving out rated books and books not for sale, `personal: true`; without liked books the top-rated books with `personal: false`; limit 1-20 (customer) |
 | GET    | /api/accounts              | Accounts, sorted by username (admin) |
 | POST   | /api/accounts              | Create an account, body `{"username": "...", "firstName": "...", "lastName": "...", "password": "...", "role": "STAFF"}` (admin) |

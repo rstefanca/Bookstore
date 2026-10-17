@@ -146,14 +146,23 @@ class McpServerIntegrationTest {
     }
 
     @Test
-    void findsSimilarBooks() {
+    void findsSimilarBooksForSale() {
+        setPrice(childrenOfDune, "12.99");
         // Embeddings are computed asynchronously after the books are created.
-        await().untilAsserted(() -> assertThat(callRaw("find_similar_books", Map.of("bookId", dune.value())).isError())
-                .isNotEqualTo(Boolean.TRUE));
+        await().until(() -> jdbc.queryForObject("SELECT count(*) FROM book_embedding WHERE NOT deleted",
+                Integer.class) == 3);
 
-        String json = call("find_similar_books", Map.of("bookId", dune.value(), "limit", 1));
-        assertThat(JsonPath.<Integer>read(json, "$[0].bookId")).isEqualTo((int) childrenOfDune.value());
+        String json = call("find_similar_books", Map.of("bookId", dune.value()));
+        assertThat(JsonPath.<List<Integer>>read(json, "$[*].id")).as("the cookbook isn't for sale")
+                .containsExactly((int) childrenOfDune.value());
+        assertThat(JsonPath.<String>read(json, "$[0].authors[0].name")).isEqualTo("Frank Herbert");
+        assertThat(JsonPath.<Double>read(json, "$[0].price.amount")).isEqualTo(12.99);
+        assertThat(JsonPath.<Integer>read(json, "$[0].rating.count")).isZero();
         assertThat(JsonPath.<Double>read(json, "$[0].similarity")).isGreaterThan(0.6);
+
+        CallToolResult unknownBook = callRaw("find_similar_books", Map.of("bookId", 999_999));
+        assertThat(unknownBook.isError()).isTrue();
+        assertThat(text(unknownBook)).contains("No recommendations for book 999999 yet");
     }
 
     @Test

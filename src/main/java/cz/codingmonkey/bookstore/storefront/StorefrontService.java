@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.storefront;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
+import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
@@ -8,13 +9,16 @@ import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
-import java.math.BigDecimal;
+import cz.codingmonkey.bookstore.recommendation.Recommendation;
+import cz.codingmonkey.bookstore.recommendation.Recommendations;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.jspecify.annotations.Nullable;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
 import org.springframework.data.domain.Page;
@@ -22,23 +26,31 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 /**
- * Combines catalog details, prices and rating summaries. Not transactional itself: each module reads in its own
- * transaction.
+ * Combines catalog details, prices, rating summaries and recommendations. Not transactional itself: each module reads
+ * in its own transaction.
  */
 @Service
 class StorefrontService {
 
+    /**
+     * How many recommendations to consider per requested similar book. Books that aren't for sale are left out, so
+     * more candidates are fetched than will be shown.
+     */
+    static final int CANDIDATES_PER_RESULT = 4;
+
     private final BookCatalog catalog;
     private final Prices prices;
     private final Ratings ratings;
+    private final Recommendations recommendations;
 
     /** Runs independent queries side by side, each on its own virtual thread. */
     private final TaskExecutor queries = new VirtualThreadTaskExecutor("storefront-query-");
 
-    StorefrontService(BookCatalog catalog, Prices prices, Ratings ratings) {
+    StorefrontService(BookCatalog catalog, Prices prices, Ratings ratings, Recommendations recommendations) {
         this.catalog = catalog;
         this.prices = prices;
         this.ratings = ratings;
+        this.recommendations = recommendations;
     }
 
     /**
@@ -95,6 +107,50 @@ class StorefrontService {
         Map<BookId, RatingSummary> ratingsById = join(bookRatings);
         return books.map(book -> StorefrontBook.of(book, pricesById.get(book.id()),
                 ratingsById.getOrDefault(book.id(), RatingSummary.NONE)));
+    }
+
+    /**
+     * Up to {@code limit} books similar to the given one that are for sale, most similar first, with their details,
+     * prices and rating summaries. Fewer if not enough of the closest {@link #CANDIDATES_PER_RESULT} × limit
+     * recommendations are for sale.
+     * <p>
+     * The prices are needed first, to pick the books; their details and ratings are then fetched side by side.
+     * Recommendations can briefly include a book that was just deleted; the catalog no longer has it, so it is
+     * skipped.
+     *
+     * @throws NoRecommendationsException if the book is unknown or hasn't been indexed yet
+     */
+    List<SimilarBook> findSimilar(BookId id, int limit) {
+        List<Recommendation> candidates = recommendations.similarTo(id, limit * CANDIDATES_PER_RESULT)
+                .orElseThrow(() -> new NoRecommendationsException(id));
+        Map<BookId, Money> pricesById = prices.pricesOf(candidates.stream().map(Recommendation::bookId).toList());
+        List<Recommendation> forSale = candidates.stream()
+                .filter(candidate -> pricesById.containsKey(candidate.bookId()))
+                .limit(limit)
+                .toList();
+        if (forSale.isEmpty()) {
+            return List.of();
+        }
+
+        List<BookId> ids = forSale.stream().map(Recommendation::bookId).toList();
+        CompletableFuture<Map<BookId, BookDetails>> bookDetails = CompletableFuture.supplyAsync(
+                () -> catalog.findBooks(new BookSearch(null, null, null, null).matching(among(ids)), Pageable.unpaged())
+                        .stream().collect(Collectors.toMap(BookDetails::id, Function.identity())),
+                queries);
+        CompletableFuture<Map<BookId, RatingSummary>> bookRatings =
+                CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+        Map<BookId, BookDetails> detailsById = join(bookDetails);
+        Map<BookId, RatingSummary> ratingsById = join(bookRatings);
+        return forSale.stream()
+                .filter(book -> detailsById.containsKey(book.bookId()))
+                .map(book -> SimilarBook.of(detailsById.get(book.bookId()), pricesById.get(book.bookId()),
+                        ratingsById.getOrDefault(book.bookId(), RatingSummary.NONE), book.similarity()))
+                .toList();
+    }
+
+    /** Limits a catalog search to the given books. */
+    private static BookCondition among(Collection<BookId> ids) {
+        return (bookId, query, cb) -> bookId.in(ids);
     }
 
     /** Waits for the result, rethrowing the query's own exception rather than a wrapper. */

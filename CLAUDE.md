@@ -52,8 +52,8 @@ Dependencies only point one way. Patterns used to keep it that way:
   (`StockReserved`/`StockReservationFailed`, `PaymentSucceeded`/`PaymentFailed`, ...). They don't know about
   orders; `ordering` depends on them, not the reverse. See `docs/design/orders.md` for the order state machine
   and compensation (release stock / refund) flow.
-- **Composition at the edge**: `storefront` combines `BookCatalog`, `Prices` and `Ratings`; catalog and pricing don't know
-  each other.
+- **Composition at the edge**: `storefront` combines `BookCatalog`, `Prices`, `Ratings` and `Recommendations` (ids +
+  similarity only, filtered to books for sale); catalog, pricing, rating and recommendation don't know each other.
 
 ### Events
 
