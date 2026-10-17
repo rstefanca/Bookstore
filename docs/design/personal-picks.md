@@ -1,6 +1,6 @@
 # Design: personal picks and rating sort/filter
 
-Status: designed (2026-10-17), not implemented.
+Status: implemented (2026-10-17).
 
 ## Goal
 

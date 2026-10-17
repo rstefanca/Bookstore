@@ -18,7 +18,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Ordering | `cz.codingmonkey.bookstore.ordering` | `OrderId` | Carts, orders and the order process; blocks deleting books with orders (implementation in `ordering.internal`) |
 | Payment | `cz.codingmonkey.bookstore.payment` | `PaymentReference`; request/result events | Fake payment provider: charges, declines, refunds |
 | Audit | `cz.codingmonkey.bookstore.audit` | none | Records an audit trail of every event that implements `shared.Auditable` (book, author, stock, price and order events) |
-| Recommendations | `cz.codingmonkey.bookstore.recommendation` | none | Similar-book suggestions from text embeddings stored with pgvector |
+| Recommendations | `cz.codingmonkey.bookstore.recommendation` | none | Similar-book suggestions and customers' personal picks, from text embeddings stored with pgvector |
 | Ratings | `cz.codingmonkey.bookstore.rating` | `Ratings`, `RatingSummary` | Customers' 1-5 star ratings of books and per-book summaries (implementation in `rating.internal`) |
 
 ### Security
@@ -32,7 +32,7 @@ in the `account` table with BCrypt password hashes. Customers are accounts too: 
 | Anyone | Browse books, authors, genres, prices and recommendations; use the read-only MCP tools; check health; read the OpenAPI spec |
 | `STAFF` | Also create, change and delete books, authors and genres; manage prices and inventory; read price history |
 | `ADMIN` | Everything staff may, plus read the audit log, manage accounts and use the other actuator endpoints |
-| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, rate books; signs up with `POST /api/accounts/register` |
+| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, rate books, get personal picks; signs up with `POST /api/accounts/register` |
 
 All rules are in `security.SecurityConfiguration`, and any path without a rule is denied, so new endpoints are
 closed until they're added there. Wrong credentials get 401 even on public endpoints; a signed-in account without
@@ -113,6 +113,28 @@ a same-genre book first for 8 of 9 books (7 of 9 without genres). Books sharing 
 ~0.8); a shared genre helps, but less than a shared topic.
 
 Renaming an author or genre doesn't update existing embeddings; they're refreshed when the book is next edited.
+
+#### Personal picks
+
+`GET /api/recommendations?limit=10` (customers only, `CUSTOMER`; `limit` 1-20, default 10, otherwise 400) picks books
+for the signed-in customer, best first:
+
+    {"personal": true, "books": [{"bookId": 7, "title": "Children of Dune", "authors": ["Frank Herbert"]}]}
+
+A book counts as liked when the customer rated it 4 or 5 stars. The picks are the books nearest (cosine distance)
+to the average embedding of the liked books, computed per request and not cached. Every book the customer has rated
+is left out, whatever the stars (a low rating keeps a book out of the picks but doesn't push the picks away from
+it). Only books for sale are picked, so a book without a price never appears; out-of-stock books stay in. Candidates
+are read in batches of `2 × limit` and filtered by price until `limit` are kept or the candidates run out, so
+`books` can hold fewer than `limit`, or none.
+
+Without a liked book (no ratings, or only 1-3 stars; or none of the liked books has an embedding yet) the picks are
+the store's top-rated books (the damped ranking of the rating sort), with the same exclusions, and `personal` is
+`false`. If nobody has rated anything, `books` is empty. There is no MCP tool for this: MCP is anonymous.
+
+The nearest-neighbour query runs in a read-only transaction with `SET LOCAL hnsw.iterative_scan = strict_order`.
+Without it an HNSW index scan stops after `hnsw.ef_search` rows (40 by default) and the excluded books could leave
+too few results. The setting needs pgvector 0.8 or newer.
 
 ### Prices
 
@@ -398,6 +420,8 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     rating    ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (rating checks the book exists)
     rating    ◀──BookDeletedEvent── book                             (removes the ratings)
     audit     ◀──Auditable events── book, inventory, pricing, ordering
+    recommendation ──Ratings.ratingsBy/topRated──▶ rating   (a customer's likes, and the top-rated fallback)
+    recommendation ──Prices.pricesOf─────────────▶ pricing  (only books for sale are picked)
     storefront ──BookCatalog.findBook/findBooks──▶ book
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
     storefront ──Ratings.summaryOf/summariesOf──▶ rating
@@ -452,7 +476,8 @@ The admin's password is generated and logged at startup unless `bookstore.securi
 
 Or run `BookstoreApplication` against your own Postgres (see `application.yml`, default `localhost:5432/bookstore`,
 user/pass `bookstore`). It needs the pgvector extension installed (e.g. the `pgvector/pgvector:pg17` image); the
-`V11` migration enables it with `CREATE EXTENSION`, which needs sufficient database privileges.
+`V11` migration enables it with `CREATE EXTENSION`, which needs sufficient database privileges. Personal picks
+need pgvector 0.8 or newer (`hnsw.iterative_scan`); the `pgvector/pgvector:pg17` image has it.
 
 ## API
 
@@ -490,6 +515,7 @@ summary.
 | GET    | /api/books/{id}/price-history | Price periods, newest first (paged); empty if never priced |
 | GET    | /api/prices?bookId=...     | Prices by book id (paged), optionally only for the given books (repeat `bookId`) |
 | GET    | /api/books/{id}/similar?limit=5 | Similar books, most similar first, with `similarity` (cosine, higher is closer); limit 1-20; 404 until the book's embedding exists |
+| GET    | /api/recommendations?limit=10 | Personal picks for the signed-in customer: books similar to those they rated 4-5 stars, leaving out rated books and books not for sale, `personal: true`; without liked books the top-rated books with `personal: false`; limit 1-20 (customer) |
 | GET    | /api/accounts              | Accounts, sorted by username (admin) |
 | POST   | /api/accounts              | Create an account, body `{"username": "...", "firstName": "...", "lastName": "...", "password": "...", "role": "STAFF"}` (admin) |
 | PUT    | /api/accounts/{id}         | Change an account's name, body `{"firstName": "...", "lastName": "..."}` (admin) |

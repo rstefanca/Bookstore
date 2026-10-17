@@ -6,6 +6,8 @@ import java.util.List;
 /**
  * A book picked for the customer.
  *
+ * @param bookId  the book
+ * @param title   the book's title
  * @param authors names, in credited order
  */
 record PickedBook(BookId bookId, String title, List<String> authors) {

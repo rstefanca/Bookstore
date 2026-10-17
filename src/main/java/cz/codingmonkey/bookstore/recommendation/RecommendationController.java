@@ -16,8 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @Tag(name = "Recommendations", description = """
-        Books similar to a given one, judged by their title, authors, genres and description (text embeddings). \
-        Open to anyone.""")
+        Books similar to a given one, judged by their title, authors, genres and description (text embeddings), \
+        open to anyone, and personal picks for customers (`CUSTOMER`), based on the books they rated.""")
 class RecommendationController {
 
     private final BookEmbeddings embeddings;
