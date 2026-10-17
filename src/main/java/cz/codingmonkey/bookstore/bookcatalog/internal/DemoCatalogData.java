@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.bookcatalog.internal;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.GenreId;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -33,6 +34,9 @@ import tools.jackson.databind.json.JsonMapper;
 class DemoCatalogData implements ApplicationRunner {
 
     static final String LOCATION = "demo-data/catalog.json";
+
+    /** Who the demo data's changes are attributed to in the audit log, as nobody is signed in at startup. */
+    static final String ACTOR = "demo-data";
 
     private static final Logger log = LogManager.getLogger(DemoCatalogData.class);
 
@@ -79,7 +83,7 @@ class DemoCatalogData implements ApplicationRunner {
         try (InputStream in = new ClassPathResource(LOCATION).getInputStream()) {
             data = json.readValue(in, Data.class);
         }
-        transaction.executeWithoutResult(status -> load(data));
+        CurrentUser.runAs(ACTOR, () -> transaction.executeWithoutResult(status -> load(data)));
         log.info("Loaded demo data: {} authors, {} books", data.authors().size(), data.books().size());
     }
 

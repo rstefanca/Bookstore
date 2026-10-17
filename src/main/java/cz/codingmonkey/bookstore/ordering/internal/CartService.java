@@ -120,9 +120,11 @@ class CartService {
                 lines.stream().map(line -> new StockReservationRequested.Line(line.getBookId(), line.getQuantity()))
                         .toList(),
                 customer));
+
         int copies = lines.stream().mapToInt(OrderLine::getQuantity).sum();
         events.publishEvent(new OrderProgressedEvent(order.getId(), OrderStep.PLACED,
                 "%d copies, %s".formatted(copies, order.getTotal()), customer, StepClock.next()));
+
         changes.info("Placed order {} ({} lines, total {})", order.getId(), lines.size(), order.getTotal());
     }
 

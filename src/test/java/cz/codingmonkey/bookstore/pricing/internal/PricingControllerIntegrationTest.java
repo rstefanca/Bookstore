@@ -108,14 +108,17 @@ class PricingControllerIntegrationTest {
         BookId book = createBook();
         setPrice(book, "{\"amount\": 10}").expectStatus().isOk();
         setPrice(book, "{\"amount\": 8.50}").expectStatus().isOk();
+        String title = client.get().uri("/api/books/{id}", book).exchange()
+                .expectBody(BookResponse.class).returnResult().getResponseBody().title();
 
         // The audit module records price changes asynchronously, after each transaction commits.
-        await().untilAsserted(() -> client.get().uri("/api/audit?bookId={id}", book)
+        await().untilAsserted(() -> client.get().uri("/api/audit?subjectType=BOOK&subjectId={id}", book)
                 .exchange()
                 .expectBody()
                 .jsonPath("$.content[?(@.action == 'PRICE_CHANGED')].description").value(descriptions ->
                         assertThat(descriptions).asInstanceOf(LIST).containsExactly(
-                                "Price changed from 10.00 EUR to 8.50 EUR", "Price set to 10.00 EUR")));
+                                "Price of \"%s\" (book %s) changed from 10.00 EUR to 8.50 EUR".formatted(title, book),
+                                "Price of \"%s\" (book %s) set to 10.00 EUR".formatted(title, book))));
     }
 
     @Test

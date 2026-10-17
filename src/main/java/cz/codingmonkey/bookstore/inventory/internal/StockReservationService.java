@@ -35,12 +35,14 @@ class StockReservationService {
 
     private final StockReservationRepository reservations;
     private final InventoryItemRepository items;
+    private final InventoryService inventory;
     private final ApplicationEventPublisher events;
 
     StockReservationService(StockReservationRepository reservations, InventoryItemRepository items,
-            ApplicationEventPublisher events) {
+            InventoryService inventory, ApplicationEventPublisher events) {
         this.reservations = reservations;
         this.items = items;
+        this.inventory = inventory;
         this.events = events;
     }
 
@@ -73,8 +75,8 @@ class StockReservationService {
             for (ReservationLine line : lines) {
                 InventoryItem item = stock.get(line.getBookId());
                 item.withdraw(line.getQuantity());
-                events.publishEvent(new StockAdjustedEvent(line.getBookId(), -line.getQuantity(),
-                        item.getQuantity(), request.actor()));
+                events.publishEvent(new StockAdjustedEvent(line.getBookId(), inventory.titleOf(line.getBookId()),
+                        -line.getQuantity(), item.getQuantity(), request.actor()));
             }
             reservation = reservations.save(StockReservation.reserved(request.reservationId(), lines));
             changes.info("Reserved stock for reservation {} ({} lines)", reservation.getId(), lines.size());
@@ -110,8 +112,8 @@ class StockReservationService {
                 continue;
             }
             item.restock(line.getQuantity());
-            events.publishEvent(new StockAdjustedEvent(line.getBookId(), line.getQuantity(), item.getQuantity(),
-                    request.actor()));
+            events.publishEvent(new StockAdjustedEvent(line.getBookId(), inventory.titleOf(line.getBookId()),
+                    line.getQuantity(), item.getQuantity(), request.actor()));
         }
         events.publishEvent(new StockReleased(reservation.getId()));
         changes.info("Released stock of reservation {}", reservation.getId());

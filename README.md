@@ -45,18 +45,25 @@ every account has a first and last name (accounts created before names existed h
 none until set), and passwords need 12-72 bytes (BCrypt ignores anything past 72). You can't delete your own account, and the last admin
 can't be deleted, even by two admins deleting each other at the same moment (admin rows are locked while checking).
 
+Every audit entry is about one subject: `{"type": "BOOK", "id": 2}` (types `BOOK`, `AUTHOR`, `ORDER`), stored as
+`subject_type` + `subject_id`, so a new kind of subject needs no migration. Filter with
+`/api/audit?subjectType=BOOK&subjectId=2`; the old `bookId`, `authorId` and `orderId` filters are rejected (400)
+rather than ignored. Design: `docs/design/audit-subject.md`.
+
 Audit entries record who made each change (`actor`: the username). The audited events carry the actor, taken
 from the signed-in user when the change is made (`shared.CurrentUser`), because the audit listeners run in the
 background where nobody is signed in. Follow-up changes inherit it: the price removed after a book was deleted is
-attributed to whoever deleted the book. Changes without a signed-in user (startup, background work) and entries
-recorded before actors existed have `actor: null`.
+attributed to whoever deleted the book, and the demo data's prices and stock to whoever created the book. The demo
+data loaded at startup is attributed to `demo-data` (`shared.CurrentUser.runAs`). Other changes without a
+signed-in user (startup, background work) and entries recorded before actors existed have `actor: null`.
 
 Purchases are audited step by step. The ordering module reports every step it sees (`OrderProgressedEvent`):
 `ORDER_PLACED`, `ORDER_STOCK_RESERVED` or `ORDER_STOCK_MISSING`, `ORDER_PAYMENT_CHARGED` or `ORDER_PAYMENT_DECLINED`,
 `ORDER_CONFIRMED`, `ORDER_REJECTED`, `ORDER_CANCELLED`, and the undo steps `ORDER_STOCK_RELEASED` and
-`ORDER_PAYMENT_REFUNDED`. Each entry has the order id and the customer as actor, also for steps done in the
-background. Each step is recorded once per order, even when its event is delivered again (unique index). The log
-line for an order step names only the action and the order id. `GET /api/audit?orderId=N` shows one purchase. Full design: `docs/design/purchase-audit.md`.
+`ORDER_PAYMENT_REFUNDED`. Each entry has the order as subject and the customer as actor, also for steps done in
+the background. Each step is recorded once per order, even when its event is delivered again (unique index). The
+log line for an order step names only the action and the order id. `GET /api/audit?subjectType=ORDER&subjectId=N`
+shows one purchase. Full design: `docs/design/purchase-audit.md`.
 
 Checking a BCrypt password takes tens of milliseconds, on every request with HTTP Basic. That's fine for staff
 tools; for high traffic, exchanging credentials for a token or session once would avoid the repeated cost.
@@ -112,7 +119,10 @@ Prices are `Money` values (a `BigDecimal` amount with the currency's decimal pla
 the store currency, `bookstore.pricing.currency` (EUR). Each price stores its currency, so adding a currency later
 needs no data migration. Setting a price locks the book against deletion like restocking does; deleting a book
 removes its price. Every change publishes `PriceChangedEvent` (old and new price, `null` meaning not for sale),
-which the audit module records as `PRICE_CHANGED`, e.g. "Price changed from 10.00 EUR to 8.50 EUR".
+which the audit module records as `PRICE_CHANGED`, e.g. `Price of "Dune" (book 1) changed from 10.00 EUR to
+8.50 EUR`. The events carry the book's title as it was at the time of the change, so stock changes and deletions
+name the book the same way: `Restocked "Dune" (book 1) by 4, now 4 in stock`, `Deleted "Dune" (book 1) with ISBN
+9780441013593`. Events published before titles were added name the book by id only.
 
 The catalog doesn't know about prices; the storefront module combines the two (see below).
 
@@ -196,7 +206,7 @@ Every data change is logged at INFO, for example:
 
     INFO ... c.c.b.b.i.BookService    : Created book 1 "Dune" (ISBN 9780441013593)
     INFO ... c.c.b.p.i.PricingService : Changed price of book 1 from 10.00 EUR to 8.50 EUR
-    INFO ... c.c.b.a.AuditListener    : Recorded audit entry PRICE_CHANGED for book 1: Price changed from ...
+    INFO ... c.c.b.a.AuditListener    : Recorded audit entry PRICE_CHANGED for book 1: Price of "Dune" (book 1) ...
 
 This covers creating, updating and deleting books, authors and genres; stock and price changes; and the changes
 event listeners make (audit entries, embeddings, stock and price cleanup after a book is deleted). Changes are logged
@@ -266,12 +276,14 @@ database-generated keys and don't check.
 Dependencies only go one way: inventory and audit depend on book, audit also depends on inventory, pricing and ordering.
 
     inventory ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (restock checks the book exists)
+    inventory ──BookCatalog.findBook──────────────────────▶ book   (title for StockAdjustedEvent)
     inventory ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books in stock)
     inventory ◀──BookDeletedEvent──── book                              (removes the empty stock record)
     audit     ◀──BookCreatedEvent/BookDeletedEvent/AuthorCreatedEvent── book
     audit     ◀──StockAdjustedEvent── inventory
     recommendation ◀──BookCreatedEvent/BookUpdatedEvent/BookDeletedEvent── book
     pricing   ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (setting a price checks the book exists)
+    pricing   ──BookCatalog.findBook──────────────────────▶ book   (title for PriceChangedEvent)
     pricing   ◀──BookDeletedEvent── book                             (removes the price)
     audit     ◀──PriceChangedEvent── pricing
     audit     ◀──OrderProgressedEvent── ordering
@@ -366,7 +378,7 @@ user/pass `bookstore`). It needs the pgvector extension installed (e.g. the `pgv
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
 | GET    | /api/orders/all            | All customers' orders (staff) |
-| GET    | /api/audit?bookId=..., ?authorId=... or ?orderId=... | Audit trail with who made each change (`actor`), newest first; optionally for one book, author or order (only one filter) (admin) |
+| GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject (`BOOK`, `AUTHOR` or `ORDER` and its id, both or neither) (admin) |
 
     curl -u admin:<password> -X POST localhost:8080/api/authors -H 'Content-Type: application/json' \
       -d '{"name":"Frank Herbert","favoriteGenreIds":[21]}'

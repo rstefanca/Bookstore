@@ -170,20 +170,15 @@ class AuthorControllerIntegrationTest {
                 .expectBody(AuthorResponse.class).returnResult().getResponseBody();
 
         // The audit module handles AuthorCreatedEvent asynchronously, after the author transaction commits.
-        await().untilAsserted(() -> client.get().uri("/api/audit?authorId={id}", created.id())
+        await().untilAsserted(() -> client.get().uri("/api/audit?subjectType=AUTHOR&subjectId={id}", created.id())
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$.content.length()").isEqualTo(1)
                 .jsonPath("$.content[0].action").isEqualTo("AUTHOR_CREATED")
-                .jsonPath("$.content[0].authorId").isEqualTo(created.id().value())
-                .jsonPath("$.content[0].bookId").isEmpty()
+                .jsonPath("$.content[0].subject.type").isEqualTo("AUTHOR")
+                .jsonPath("$.content[0].subject.id").isEqualTo(created.id().value())
                 .jsonPath("$.content[0].description").isEqualTo("Created author \"Octavia E. Butler\""));
-    }
-
-    @Test
-    void auditRejectsFilteringByBookAndAuthorAtOnce() {
-        client.get().uri("/api/audit?bookId=1&authorId=1").exchange().expectStatus().isBadRequest();
     }
 
     @Test

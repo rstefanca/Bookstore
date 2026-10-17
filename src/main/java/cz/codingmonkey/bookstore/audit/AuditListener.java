@@ -4,6 +4,7 @@ import cz.codingmonkey.bookstore.audit.AuditEntry.Action;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorCreatedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookCreatedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
+import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.inventory.StockAdjustedEvent;
 import cz.codingmonkey.bookstore.ordering.OrderProgressedEvent;
 import cz.codingmonkey.bookstore.pricing.PriceChangedEvent;
@@ -28,43 +29,45 @@ class AuditListener {
 
     @ApplicationModuleListener
     void on(BookCreatedEvent event) {
-        record(AuditEntry.forBook(Action.BOOK_CREATED, event.bookId(), event.actor(),
+        record(AuditEntry.about(AuditSubject.of(event.bookId()), Action.BOOK_CREATED, event.actor(),
                 "Created \"%s\" by %s (ISBN %s)".formatted(event.title(), String.join(", ", event.authors()),
                         event.isbn())));
     }
 
     @ApplicationModuleListener
     void on(BookDeletedEvent event) {
-        record(AuditEntry.forBook(Action.BOOK_DELETED, event.bookId(), event.actor(),
-                "Deleted book with ISBN %s".formatted(event.isbn())));
+        record(AuditEntry.about(AuditSubject.of(event.bookId()), Action.BOOK_DELETED, event.actor(),
+                "Deleted %s with ISBN %s".formatted(book(event.bookId(), event.title()), event.isbn())));
     }
 
     @ApplicationModuleListener
     void on(StockAdjustedEvent event) {
-        String change = event.delta() > 0 ? "Restocked %d".formatted(event.delta())
-                : "Withdrew %d".formatted(-event.delta());
-        record(AuditEntry.forBook(Action.STOCK_ADJUSTED, event.bookId(), event.actor(),
+        String book = book(event.bookId(), event.title());
+        String change = event.delta() > 0 ? "Restocked %s by %d".formatted(book, event.delta())
+                : "Withdrew %d of %s".formatted(-event.delta(), book);
+        record(AuditEntry.about(AuditSubject.of(event.bookId()), Action.STOCK_ADJUSTED, event.actor(),
                 "%s, now %d in stock%s".formatted(change, event.newQuantity(),
                         event.isOutOfStock() ? " (OUT OF STOCK)" : "")));
     }
 
     @ApplicationModuleListener
     void on(AuthorCreatedEvent event) {
-        record(AuditEntry.forAuthor(Action.AUTHOR_CREATED, event.authorId(), event.actor(),
+        record(AuditEntry.about(AuditSubject.of(event.authorId()), Action.AUTHOR_CREATED, event.actor(),
                 "Created author \"%s\"".formatted(event.name())));
     }
 
     @ApplicationModuleListener
     void on(PriceChangedEvent event) {
+        String book = book(event.bookId(), event.title());
         String description;
         if (event.oldPrice() == null) {
-            description = "Price set to %s".formatted(event.newPrice());
+            description = "Price of %s set to %s".formatted(book, event.newPrice());
         } else if (event.newPrice() == null) {
-            description = "Price removed (was %s); no longer for sale".formatted(event.oldPrice());
+            description = "Price of %s removed (was %s); no longer for sale".formatted(book, event.oldPrice());
         } else {
-            description = "Price changed from %s to %s".formatted(event.oldPrice(), event.newPrice());
+            description = "Price of %s changed from %s to %s".formatted(book, event.oldPrice(), event.newPrice());
         }
-        record(AuditEntry.forBook(Action.PRICE_CHANGED, event.bookId(), event.actor(), description));
+        record(AuditEntry.about(AuditSubject.of(event.bookId()), Action.PRICE_CHANGED, event.actor(), description));
     }
 
     /**
@@ -74,22 +77,26 @@ class AuditListener {
     @ApplicationModuleListener
     void on(OrderProgressedEvent event) {
         Action action = Action.valueOf("ORDER_" + event.step().name());
-        if (repository.existsByOrderIdAndAction(event.orderId(), action)) {
+        AuditSubject order = AuditSubject.of(event.orderId());
+        if (repository.existsBySubjectAndAction(order, action)) {
             return;
         }
-        record(AuditEntry.forOrder(action, event.orderId(), event.actor(), event.detail(), event.occurredAt()));
+        record(AuditEntry.about(order, action, event.actor(), event.detail(), event.occurredAt()));
+    }
+
+    /** Names a book for an auditor; events published before they carried the title name it by id only. */
+    private static String book(BookId bookId, String title) {
+        return title == null ? "book %s".formatted(bookId) : "\"%s\" (book %s)".formatted(title, bookId);
     }
 
     private void record(AuditEntry entry) {
         repository.save(entry);
-        if (entry.getOrderId() != null) {
+        if (entry.getSubject().type() == AuditSubject.Type.ORDER) {
             // Ids only: order entries carry the customer's username and book titles.
-            changes.info("Recorded audit entry {} for order {}", entry.getAction(), entry.getOrderId());
+            changes.info("Recorded audit entry {} for {}", entry.getAction(), entry.getSubject());
             return;
         }
-        changes.info("Recorded audit entry {} for {} {} by {}: {}", entry.getAction(),
-                entry.getBookId() != null ? "book" : "author",
-                entry.getBookId() != null ? entry.getBookId() : entry.getAuthorId(),
+        changes.info("Recorded audit entry {} for {} by {}: {}", entry.getAction(), entry.getSubject(),
                 entry.getActor() != null ? entry.getActor() : "system", entry.getDescription());
     }
 }

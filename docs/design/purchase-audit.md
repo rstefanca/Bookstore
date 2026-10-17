@@ -1,6 +1,7 @@
 # Design: auditing purchases
 
-Status: implemented (2026-10-16).
+Status: implemented (2026-10-16). Since 2026-10-17 audit entries store a generic subject instead of `book_id` /
+`author_id` / `order_id` columns, filtered with `?subjectType=ORDER&subjectId=N`: see `audit-subject.md`.
 
 ## Goal
 

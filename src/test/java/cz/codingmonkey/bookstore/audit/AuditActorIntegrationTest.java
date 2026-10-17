@@ -66,7 +66,7 @@ class AuditActorIntegrationTest {
         staff.delete().uri("/api/books/{id}", book).exchange().expectStatus().isNoContent();
 
         // Audit entries are recorded asynchronously after each change commits.
-        await().untilAsserted(() -> admin.get().uri("/api/audit?bookId={id}&size=100", book)
+        await().untilAsserted(() -> admin.get().uri("/api/audit?subjectType=BOOK&subjectId={id}&size=100", book)
                 .exchange()
                 .expectBody()
                 .jsonPath("$.content[*].action").value(actions -> assertThat(actions).asInstanceOf(LIST)
@@ -75,7 +75,7 @@ class AuditActorIntegrationTest {
                 .jsonPath("$.content[*].actor").value(actors -> assertThat(actors).asInstanceOf(LIST)
                         .hasSize(6).containsOnly(staffUsername)));
 
-        admin.get().uri("/api/audit?authorId={id}", author)
+        admin.get().uri("/api/audit?subjectType=AUTHOR&subjectId={id}", author)
                 .exchange()
                 .expectBody().jsonPath("$.content[0].actor").isEqualTo(staffUsername);
     }

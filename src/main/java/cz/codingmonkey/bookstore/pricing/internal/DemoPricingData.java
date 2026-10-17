@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.pricing.internal;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import cz.codingmonkey.bookstore.bookcatalog.BookCreatedEvent;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -48,7 +49,7 @@ class DemoPricingData {
     void on(BookCreatedEvent event) {
         BigDecimal amount = amountsByIsbn.get(event.isbn());
         if (amount != null) {
-            pricing.setPrice(event.bookId(), amount, null);
+            CurrentUser.runAs(event.actor(), () -> pricing.setPrice(event.bookId(), amount, null));
         }
     }
 }

@@ -1,12 +1,7 @@
 package cz.codingmonkey.bookstore.audit;
 
-import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
-import cz.codingmonkey.bookstore.bookcatalog.AuthorIdType;
-import cz.codingmonkey.bookstore.bookcatalog.BookId;
-import cz.codingmonkey.bookstore.bookcatalog.BookIdType;
-import cz.codingmonkey.bookstore.ordering.OrderId;
-import cz.codingmonkey.bookstore.ordering.OrderIdType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -17,7 +12,7 @@ import java.time.Instant;
 import org.hibernate.annotations.Type;
 
 /**
- * Records one change to a book, an author or an order (exactly one of them).
+ * Records one change to its subject: a book, an author or an order.
  */
 @Entity
 class AuditEntry {
@@ -38,17 +33,8 @@ class AuditEntry {
     @Column(nullable = false)
     private Action action;
 
-    /** Set for book entries. */
-    @Type(BookIdType.class)
-    private BookId bookId;
-
-    /** Set for author entries. */
-    @Type(AuthorIdType.class)
-    private AuthorId authorId;
-
-    /** Set for order entries. */
-    @Type(OrderIdType.class)
-    private OrderId orderId;
+    @Embedded
+    private AuditSubject subject;
 
     @Column(nullable = false)
     private String description;
@@ -63,36 +49,27 @@ class AuditEntry {
     protected AuditEntry() {
     }
 
-    private AuditEntry(Action action, BookId bookId, AuthorId authorId, OrderId orderId, String actor,
-            String description, Instant occurredAt) {
+    private AuditEntry(AuditSubject subject, Action action, String actor, String description, Instant occurredAt) {
+        this.subject = subject;
         this.action = action;
-        this.bookId = bookId;
-        this.authorId = authorId;
-        this.orderId = orderId;
         this.actor = actor;
         this.description = description;
         this.occurredAt = occurredAt;
     }
 
-    static AuditEntry forBook(Action action, BookId bookId, String actor, String description) {
-        return new AuditEntry(action, bookId, null, null, actor, description, Instant.now());
+    static AuditEntry about(AuditSubject subject, Action action, String actor, String description) {
+        return about(subject, action, actor, description, Instant.now());
     }
 
-    static AuditEntry forAuthor(Action action, AuthorId authorId, String actor, String description) {
-        return new AuditEntry(action, null, authorId, null, actor, description, Instant.now());
-    }
-
-    /** @param occurredAt when the step happened (steps are recorded in parallel, so not in order) */
-    static AuditEntry forOrder(Action action, OrderId orderId, String actor, String description,
+    /** @param occurredAt when it happened, for changes recorded out of order (steps of an order) */
+    static AuditEntry about(AuditSubject subject, Action action, String actor, String description,
             Instant occurredAt) {
-        return new AuditEntry(action, null, null, orderId, actor, description, occurredAt);
+        return new AuditEntry(subject, action, actor, description, occurredAt);
     }
 
     AuditEntryId getId() { return id; }
+    AuditSubject getSubject() { return subject; }
     Action getAction() { return action; }
-    BookId getBookId() { return bookId; }
-    AuthorId getAuthorId() { return authorId; }
-    OrderId getOrderId() { return orderId; }
     String getDescription() { return description; }
     String getActor() { return actor; }
     Instant getOccurredAt() { return occurredAt; }
