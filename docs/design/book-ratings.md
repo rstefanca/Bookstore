@@ -1,6 +1,6 @@
 # Design: book ratings
 
-Status: proposed (2026-10-17).
+Status: implemented (2026-10-17).
 
 ## Goal
 

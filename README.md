@@ -140,18 +140,29 @@ migration time.
 ### Storefront
 
 `GET /api/books` and `GET /api/books/{id}` belong to the storefront module, which combines the catalog's book
-details with the current price (`"price": null` means not for sale). It uses only the public APIs `BookCatalog`
-and `Prices`, so the catalog and pricing still don't depend on each other. Creating, updating and deleting books
+details with the current price (`"price": null` means not for sale) and the book's rating summary. It uses only
+the public APIs `BookCatalog`, `Prices` and `Ratings`, so the catalog, pricing and rating modules still don't depend
+on each other. Creating, updating and deleting books
 stays with the catalog (`POST`/`PUT`/`DELETE /api/books`).
 
-For a single book, the catalog and price queries run in parallel on virtual threads; neither needs the other's
+Every storefront book carries a `rating` summary, never null:
+
+```json
+"rating": {"average": 4.3, "count": 12, "stars": {"1": 0, "2": 1, "3": 0, "4": 3, "5": 8}}
+```
+
+An unrated book has `"average": null`, `"count": 0` and all star counts 0. There is no sorting or filtering by
+rating.
+
+For a single book, the catalog, price and rating queries run in parallel on virtual threads; none needs another's
 result. This uses `CompletableFuture`; structured concurrency (`StructuredTaskScope`) would fit better but is still
-a preview API in Java 25. A list runs one query for the page of books and then one batch query for their prices, since the price
-query needs the page's book ids. A price filter (`minPrice`, `maxPrice`) first asks pricing which books are in
-range (`Prices.booksPricedBetween`) and limits the catalog search to them (`BookSearch.onlyBooks`), so paging and
-totals stay right without either module reading the other's tables. For a very large catalog, a broad range would
-mean a long id list; a search read model would then be the better fit. Composed responses aren't cached as a whole; each part is cached by the module that
-owns it (see Caching).
+a preview API in Java 25. A list runs one query for the page of books and then, in parallel, one batch query for
+their prices and one for their rating summaries, since both need the page's book ids. A price filter (`minPrice`,
+`maxPrice`) first asks pricing which books are in range (`Prices.booksPricedBetween`) and limits the catalog search
+to them (`BookSearch.onlyBooks`), so paging and totals stay right without either module reading the other's tables.
+For a very large catalog, a broad range would mean a long id list; a search read model would then be the better fit.
+Composed responses aren't cached as a whole; each part is cached by the module that owns it (see Caching), and
+rating summaries aren't cached.
 
 ### Threads
 
@@ -321,8 +332,8 @@ module contributes its own tools with `@McpTool`, and all of them are read-only 
 
 | Tool | Module | What it does |
 |------|--------|--------------|
-| `search_books` | storefront | Books with prices; filter by title, author name, `authorId`, `genreId`, `minPrice`/`maxPrice` (AND, price bounds inclusive); sorted by title; `limit` 1-50, default 20 |
-| `get_book` | storefront | One book by id, with its price |
+| `search_books` | storefront | Books with prices and ratings; filter by title, author name, `authorId`, `genreId`, `minPrice`/`maxPrice` (AND, price bounds inclusive); sorted by title; `limit` 1-50, default 20 |
+| `get_book` | storefront | One book by id, with its price and rating |
 | `list_authors` | catalog | Authors sorted by name, optional name filter, `limit` 1-50 |
 | `get_author` | catalog | One author by id, with favorite genres |
 | `list_genres` | catalog | All genres, optional name filter |
@@ -361,6 +372,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     audit     ◀──Auditable events── book, inventory, pricing, ordering
     storefront ──BookCatalog.findBook/findBooks──▶ book
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
+    storefront ──Ratings.summaryOf/summariesOf──▶ rating
 
 A new book has no stock record. One is created on its first restock, so until then `/api/inventory/{bookId}`
 returns 404. Deleting a book whose stock is above 0 returns 409.
@@ -412,11 +424,13 @@ summary.
 
 | Method | Path                       | Description                 |
 |--------|----------------------------|-----------------------------|
-| GET    | /api/books?title=...&author=...&authorId=...&genreId=...&minPrice=...&maxPrice=... | List books with prices, sorted by title; optional filters combine: title (contains), author name (contains, any co-author), author id, genre id, price range (inclusive, EUR; leaves out books not for sale) |
-| GET    | /api/books/{id}            | Get one book with its price |
+| GET    | /api/books?title=...&author=...&authorId=...&genreId=...&minPrice=...&maxPrice=... | List books with prices and ratings, sorted by title; optional filters combine: title (contains), author name (contains, any co-author), author id, genre id, price range (inclusive, EUR; leaves out books not for sale) |
+| GET    | /api/books/{id}            | Get one book with its price and rating |
 | POST   | /api/books                 | Create a book               |
 | PUT    | /api/books/{id}            | Update a book               |
 | DELETE | /api/books/{id}            | Delete a book; 409 if in stock |
+| PUT    | /api/books/{id}/rating     | Rate a book, body `{"stars": 4}` (1-5); replaces your earlier rating; 400 for other values, 404 if the book doesn't exist (customer) |
+| GET    | /api/books/{id}/rating     | Your rating of a book; 404 if you haven't rated it (customer) |
 | GET    | /api/authors?name=...      | List authors sorted by name (optional name filter) |
 | GET    | /api/authors/{id}          | Get one author              |
 | POST   | /api/authors               | Create an author, body `{"name": "...", "favoriteGenreIds": [9]}` (favorites optional) |
@@ -454,8 +468,6 @@ summary.
 | GET    | /api/orders                | Your orders, newest first (customer) |
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
-| PUT    | /api/books/{id}/rating     | Rate a book, body `{"stars": 4}` (1-5); replaces your earlier rating; 400 for other values, 404 if the book doesn't exist (customer) |
-| GET    | /api/books/{id}/rating     | Your rating of a book; 404 if you haven't rated it (customer) |
 | GET    | /api/orders/all            | All customers' orders (staff) |
 | GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
 | GET    | /actuator/health           | Health status, plus `/liveness` and `/readiness` probes (anyone; components for admins) |

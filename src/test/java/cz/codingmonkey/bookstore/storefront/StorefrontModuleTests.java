@@ -19,12 +19,15 @@ import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookSearch;
 import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
+import cz.codingmonkey.bookstore.rating.RatingSummary;
+import cz.codingmonkey.bookstore.rating.Ratings;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -50,19 +53,33 @@ class StorefrontModuleTests {
     @MockitoBean
     Prices prices;
 
+    @MockitoBean
+    Ratings ratings;
+
     @Autowired
     StorefrontService storefront;
 
+    @BeforeEach
+    void rateNothingByDefault() {
+        // A mock would return null, which the non-null rating component doesn't allow.
+        given(ratings.summaryOf(any())).willReturn(RatingSummary.NONE);
+    }
+
     @Test
-    void fetchesBookAndPriceInParallel() {
-        // Each query waits until the other one has started too; run one after the other, the first would time out.
-        var bothStarted = new CyclicBarrier(2);
+    void fetchesBookPriceAndRatingInParallel() {
+        // Each query waits until the others have started too; run one after the other, the first would time out.
+        var allStarted = new CyclicBarrier(3);
+        var rating = RatingSummary.of(Map.of(4, 1));
         willAnswer(invocation -> {
-            bothStarted.await(5, TimeUnit.SECONDS);
+            allStarted.await(5, TimeUnit.SECONDS);
+            return rating;
+        }).given(ratings).summaryOf(DUNE);
+        willAnswer(invocation -> {
+            allStarted.await(5, TimeUnit.SECONDS);
             return Optional.of(DUNE_DETAILS);
         }).given(catalog).findBook(DUNE);
         willAnswer(invocation -> {
-            bothStarted.await(5, TimeUnit.SECONDS);
+            allStarted.await(5, TimeUnit.SECONDS);
             return Optional.of(Money.of("12.90", "EUR"));
         }).given(prices).priceOf(DUNE);
 
@@ -70,6 +87,7 @@ class StorefrontModuleTests {
 
         assertThat(book.title()).isEqualTo("Dune");
         assertThat(book.price()).isEqualTo(Money.of("12.90", "EUR"));
+        assertThat(book.rating()).isEqualTo(rating);
     }
 
     @Test
@@ -114,6 +132,21 @@ class StorefrontModuleTests {
                         tuple("Neuromancer", null));
         assertThat(page.getTotalElements()).isEqualTo(7);
         verify(prices, never()).pricedBetween(any(), any());
+    }
+
+    @Test
+    void listsBooksWithRatings() {
+        var search = new BookSearch(null, null, null, null);
+        given(catalog.findBooks(search, Pageable.ofSize(5)))
+                .willReturn(new PageImpl<>(List.of(DUNE_DETAILS), Pageable.ofSize(5), 1));
+        given(ratings.summariesOf(List.of(DUNE))).willReturn(Map.of(DUNE, RatingSummary.of(Map.of(5, 2))));
+
+        var page = storefront.findBooks(search, PriceRange.ANY, Pageable.ofSize(5));
+
+        assertThat(page.getContent()).singleElement().satisfies(book -> {
+            assertThat(book.rating().average()).isEqualByComparingTo("5.0");
+            assertThat(book.rating().count()).isEqualTo(2);
+        });
     }
 
     @Test

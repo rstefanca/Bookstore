@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -31,8 +32,13 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @Import(TestcontainersConfiguration.class)
 class StorefrontIntegrationTest {
 
+    private static final String PASSWORD = "buyer-password-1";
+
     @Autowired
     RestTestClient client;
+
+    @LocalServerPort
+    int port;
 
     String titlePrefix;
     AuthorId author;
@@ -102,6 +108,36 @@ class StorefrontIntegrationTest {
     }
 
     @Test
+    void showsRatings() {
+        BookId rated = createBook("A");
+        createBook("B");
+        rate(signUp(username("bea")), rated, 4);
+        rate(signUp(username("carl")), rated, 5);
+
+        client.get().uri("/api/books/{id}", rated)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.rating.average").isEqualTo(4.5)
+                .jsonPath("$.rating.count").isEqualTo(2)
+                .jsonPath("$.rating.stars.4").isEqualTo(1)
+                .jsonPath("$.rating.stars.5").isEqualTo(1)
+                .jsonPath("$.rating.stars.1").isEqualTo(0);
+
+        client.get().uri("/api/books?title={prefix}", titlePrefix)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.content[0].rating.average").isEqualTo(4.5)
+                .jsonPath("$.content[0].rating.count").isEqualTo(2)
+                .jsonPath("$.content[0].rating.stars.4").isEqualTo(1)
+                .jsonPath("$.content[0].rating.stars.5").isEqualTo(1)
+                .jsonPath("$.content[0].rating.stars.1").isEqualTo(0)
+                .jsonPath("$.content[1].rating.average").isEmpty()
+                .jsonPath("$.content[1].rating.count").isEqualTo(0);
+    }
+
+    @Test
     void filtersByPriceRangeWithInclusiveBounds() {
         setPrice(createBook("Cheap"), "5");
         setPrice(createBook("Middle"), "10");
@@ -152,5 +188,30 @@ class StorefrontIntegrationTest {
                 .body("{\"amount\": " + amount + "}")
                 .exchange()
                 .expectStatus().isOk();
+    }
+
+    private void rate(RestTestClient customer, BookId book, int stars) {
+        customer.put().uri("/api/books/{id}/rating", book)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"stars\": " + stars + "}")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    private RestTestClient signUp(String username) {
+        RestTestClient.bindToServer().baseUrl("http://localhost:" + port)
+                .build()
+                .post().uri("/api/accounts/register").contentType(MediaType.APPLICATION_JSON)
+                .body("""
+                        {"username": "%s", "firstName": "Bea", "lastName": "Buyer", "password": "%s"}
+                        """.formatted(username, PASSWORD))
+                .exchange().expectStatus().isCreated();
+        return RestTestClient.bindToServer().baseUrl("http://localhost:" + port)
+                .defaultHeaders(headers -> headers.setBasicAuth(username, PASSWORD))
+                .build();
+    }
+
+    private static String username(String prefix) {
+        return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 }

@@ -15,7 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 /**
- * Read-only MCP tools for finding books the way customers see them: catalog details together with the price.
+ * Read-only MCP tools for finding books the way customers see them: catalog details together with the price and rating.
  */
 @Component
 class StorefrontMcpTools {
@@ -32,8 +32,9 @@ class StorefrontMcpTools {
     @McpTool(name = "search_books", title = "Search books", description = """
             Searches the bookstore. All filters are optional and combine with AND; without filters it lists books \
             alphabetically. Returns books sorted by title, each with id, title, authors (credited order), genres, \
-            ISBN, publication year, description and price ({amount, currency}, or null if the book isn't for \
-            sale). Use list_authors or list_genres to find ids for the authorId and genreId filters. minPrice and \
+            ISBN, publication year, description, price ({amount, currency}, or null if the book isn't for sale) \
+            and rating ({average, count, stars}; average is null if unrated, stars counts the ratings per 1-5 \
+            stars). Use list_authors or list_genres to find ids for the authorId and genreId filters. minPrice and \
             maxPrice are inclusive and in the store currency (EUR); with either set, books that aren't for sale \
             are left out. For "under 13 EUR" use maxPrice 12.99.""",
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
@@ -61,7 +62,7 @@ class StorefrontMcpTools {
     }
 
     @McpTool(name = "get_book", title = "Get book", description = """
-            Gets one book by id, with its price (null if it isn't for sale).""",
+            Gets one book by id, with its price (null if it isn't for sale) and rating.""",
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
     StorefrontBook getBook(@McpToolParam(description = "The book's id") long bookId) {
