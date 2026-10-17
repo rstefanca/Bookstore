@@ -150,7 +150,10 @@ class CartService {
     @Transactional
     void restore(CustomerOrder order) {
         Cart cart = carts.findAndLockByCustomer(order.getCustomer())
-                .orElseGet(() -> carts.save(new Cart(order.getCustomer())));
+                .orElseGet(() -> {
+                    Cart newCart = new Cart(order.getCustomer());
+                    return carts.save(newCart);
+                });
         order.getLines().forEach(line -> cart.add(line.getBookId(), line.getQuantity()));
         changes.info("Order {}: put {} lines back into the cart", order.getId(), order.getLines().size());
     }
