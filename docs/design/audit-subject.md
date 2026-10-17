@@ -152,8 +152,10 @@ void on(Auditable event) {
 ```
 
 - `occurredAt()` is called once, so the default (now) is the same for the check and the entry.
-- Only events that set their own `occurredAt` are deduplicated; today that is `OrderProgressedEvent`, so order steps
-  are still recorded once and book/author events behave as before.
+- Only events that set their own `occurredAt` are deduplicated; today that is `OrderProgressedEvent`. An order step
+  redelivered as the same event is recorded once. The undo steps `ORDER_STOCK_RELEASED` and `ORDER_PAYMENT_REFUNDED`
+  are published with a fresh timestamp each time ordering's listener runs, so they can be recorded twice if that
+  listener is retried after a crash, which the old unique index prevented. Book/author events behave as before.
 - An invalid action throws; the publication stays incomplete and is retried on restart, as with
   `Action.valueOf` today.
 - The log line never contains the actor or description (order entries carry the customer's username and book
@@ -234,4 +236,6 @@ Unaffected: `AuditOrderMigrationTest` (migrates only to V21), `LoggingIntegratio
 - Demo-data actors and book titles in descriptions (PR #1).
 - Two deliveries of the same event at the same time (would need a unique index).
 - Deduplicating events that don't set their own `occurredAt`.
+- Making undo steps (`ORDER_STOCK_RELEASED`, `ORDER_PAYMENT_REFUNDED`) deterministic so their redelivery is also
+  recorded once.
 - Filtering by subject type alone.

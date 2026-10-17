@@ -30,6 +30,8 @@ class AuditModuleTests {
     /** Typed like the real one: {@code typeName()} is "ORDER". */
     record OrderId(long value) implements LongId { }
 
+    record AVeryLongSubjectNameThatGoesBeyondTheFiftyCharacterColumnLimitId(long value) implements LongId { }
+
     record Audited(String auditAction, LongId auditSubject, String auditDescription, String actor,
             Instant occurredAt) implements Auditable { }
 
@@ -121,6 +123,26 @@ class AuditModuleTests {
         assertThatThrownBy(() -> AuditEntry.of("ORDER_PLACED", null, null, "x", Instant.now()))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("subject");
+    }
+
+    @Test
+    void subjectTypeFormat() {
+        LongId anonymous = new LongId() {
+            @Override
+            public long value() {
+                return 1;
+            }
+        };
+        assertThatThrownBy(() -> AuditEntry.of("ORDER_PLACED", anonymous, null, "x", Instant.now()))
+                .as("anonymous id, type name ''")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("subject type");
+        var tooLong = new AVeryLongSubjectNameThatGoesBeyondTheFiftyCharacterColumnLimitId(1);
+        assertThatThrownBy(() -> AuditEntry.of("ORDER_PLACED", tooLong, null, "x", Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(tooLong.typeName());
+        assertThatCode(() -> AuditEntry.of("ORDER_PLACED", new OrderId(1), null, "x", Instant.now()))
+                .doesNotThrowAnyException();
     }
 
     @Test

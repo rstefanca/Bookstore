@@ -19,16 +19,16 @@ import org.hibernate.annotations.Type;
 @Entity
 class AuditEntry {
 
-    /** Upper snake case, as {@code Auditable.auditAction()} promises. */
-    private static final Pattern ACTION_FORMAT = Pattern.compile("[A-Z][A-Z0-9_]*");
-    private static final int MAX_ACTION_LENGTH = 50;
+    /** Upper snake case, as {@code Auditable.auditAction()} promises; also the format of subject type names. */
+    static final Pattern NAME_FORMAT = Pattern.compile("[A-Z][A-Z0-9_]*");
+    static final int MAX_NAME_LENGTH = 50;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Type(AuditEntryIdType.class)
     private AuditEntryId id;
 
-    @Column(nullable = false, length = MAX_ACTION_LENGTH)
+    @Column(nullable = false, length = MAX_NAME_LENGTH)
     private String action;
 
     @Embedded
@@ -61,16 +61,24 @@ class AuditEntry {
      * @param occurredAt when the change happened (order steps are recorded in parallel, so not in order); truncated
      *                   to microseconds, the precision Postgres stores, so that an event delivered again matches
      *                   the entry stored for it
-     * @throws IllegalArgumentException if the action is malformed
+     * @throws IllegalArgumentException if the action or the subject's type name is malformed (same format)
      */
     static AuditEntry of(String action, LongId subject, String actor, String description, Instant occurredAt) {
         Objects.requireNonNull(subject, "subject");
-        if (action.length() > MAX_ACTION_LENGTH || !ACTION_FORMAT.matcher(action).matches()) {
+        if (!isValidName(action)) {
             throw new IllegalArgumentException("Audit action must be upper snake case of at most "
-                    + MAX_ACTION_LENGTH + " characters, was '" + action + "'");
+                    + MAX_NAME_LENGTH + " characters, was '" + action + "'");
+        }
+        if (!isValidName(subject.typeName())) {
+            throw new IllegalArgumentException("Audit subject type must be upper snake case of at most "
+                    + MAX_NAME_LENGTH + " characters, was '" + subject.typeName() + "'");
         }
         return new AuditEntry(action, AuditSubject.of(subject), actor, description,
                 occurredAt.truncatedTo(ChronoUnit.MICROS));
+    }
+
+    static boolean isValidName(String name) {
+        return name.length() <= MAX_NAME_LENGTH && NAME_FORMAT.matcher(name).matches();
     }
 
     AuditEntryId getId() { return id; }

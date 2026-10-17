@@ -62,8 +62,9 @@ Purchases are audited step by step. The ordering module reports every step it se
 `ORDER_PLACED`, `ORDER_STOCK_RESERVED` or `ORDER_STOCK_MISSING`, `ORDER_PAYMENT_CHARGED` or `ORDER_PAYMENT_DECLINED`,
 `ORDER_CONFIRMED`, `ORDER_REJECTED`, `ORDER_CANCELLED`, and the undo steps `ORDER_STOCK_RELEASED` and
 `ORDER_PAYMENT_REFUNDED`. Each entry has the order as subject and the customer as actor, also for steps done in the
-background. Each step is recorded once per order, even when its event is delivered again (see above). Every audit log
-line names only the action and the subject. `GET /api/audit?subjectType=ORDER&subjectId=N` shows one purchase. Full
+background. A redelivered order step is recorded once; only the undo steps (`ORDER_STOCK_RELEASED`,
+`ORDER_PAYMENT_REFUNDED`) can appear twice, if the ordering module's own listener is retried after a crash. Every audit
+log line names only the action and the subject. `GET /api/audit?subjectType=ORDER&subjectId=N` shows one purchase. Full
 design: `docs/design/purchase-audit.md`.
 
 Checking a BCrypt password takes tens of milliseconds, on every request with HTTP Basic. That's fine for staff

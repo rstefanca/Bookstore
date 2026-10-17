@@ -1,7 +1,6 @@
 package cz.codingmonkey.bookstore.audit;
 
 import java.time.Instant;
-import java.util.regex.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,8 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/audit")
 class AuditController {
-
-    private static final Pattern TYPE_FORMAT = Pattern.compile("[A-Z][A-Z0-9_]*");
 
     /** @param actor username of whoever made the change; {@code null} for changes without a signed-in user */
     record AuditEntryResponse(AuditEntryId id, String action, SubjectResponse subject, String actor,
@@ -55,7 +52,7 @@ class AuditController {
         if ((subjectType == null) != (subjectId == null)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Filter by both subjectType and subjectId");
         }
-        if (subjectType != null && !TYPE_FORMAT.matcher(subjectType).matches()) {
+        if (subjectType != null && !AuditEntry.isValidName(subjectType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "subjectType must be upper snake case");
         }
         if (subjectId != null && subjectId <= 0) {

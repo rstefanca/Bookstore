@@ -4,7 +4,7 @@ import java.time.Instant;
 
 /**
  * An event that is recorded in the audit trail. The event describes itself, so the audit module needs no knowledge of
- * the publishing module beyond the id types it stores.
+ * the publishing module; the subject is stored by its {@link LongId#typeName()} and value.
  */
 public interface Auditable {
 
