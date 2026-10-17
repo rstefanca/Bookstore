@@ -376,6 +376,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     inventory ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (restock checks the book exists)
     inventory ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books in stock)
     ordering  ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books with orders)
+    ordering  ──Stock.availableOf─────────────────────────▶ inventory (checkout checks stock)
     inventory ◀──BookDeletedEvent──── book                              (removes the empty stock record)
     recommendation ◀──BookCreatedEvent/BookUpdatedEvent/BookDeletedEvent── book
     pricing   ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (setting a price checks the book exists)
