@@ -39,6 +39,9 @@ class SecurityConfiguration {
                         .requestMatchers("/error").permitAll()
                         // Anyone: health, for load balancers and orchestrators (details only for admins).
                         .requestMatchers(GET, "/actuator/health", "/actuator/health/**").permitAll()
+                        // Anyone: the OpenAPI spec and Swagger UI (they describe the API, not its data).
+                        .requestMatchers(GET, "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**",
+                                "/swagger-ui.html", "/swagger-ui/**").permitAll()
 
                         // Customers: their cart and orders. Staff (and admins) see all orders.
                         .requestMatchers(GET, "/api/orders/all").hasRole(Role.STAFF.name())

@@ -1,5 +1,9 @@
 package cz.codingmonkey.bookstore.shared;
 
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -7,6 +11,7 @@ import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -40,7 +45,26 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     record InvalidValue(String field, @Nullable String message) {
     }
 
+    /**
+     * A problem detail as it appears in JSON, for the OpenAPI spec: {@link ProblemDetail} keeps extra members such
+     * as {@code errors} in a map that is written inline.
+     */
+    @Schema(name = "Problem", description = "RFC 9457 problem detail")
+    record ProblemJson(
+            @Schema(description = "Left out when it is about:blank") @Nullable URI type,
+            @Schema(description = "HTTP reason phrase") String title,
+            int status,
+            @Schema(description = "What went wrong, for the caller") @Nullable String detail,
+            @Schema(description = "The request path") URI instance,
+            @Schema(description = "Only for invalid requests: each invalid field or parameter")
+            @Nullable List<InvalidValue> errors) {
+    }
+
+    /** Also documents, for every operation in the OpenAPI spec, that errors come as problem details. */
     @ExceptionHandler
+    @ApiResponse(responseCode = "default", description = "Error, as an RFC 9457 problem detail",
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                    schema = @Schema(implementation = ProblemJson.class)))
     ProblemDetail withDeclaredStatus(RuntimeException ex) {
         ResponseStatus status = AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
         if (status == null) {

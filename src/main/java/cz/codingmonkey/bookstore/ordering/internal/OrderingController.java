@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -59,9 +60,9 @@ class OrderingController {
     }
 
     @DeleteMapping("/api/cart")
-    ResponseEntity<Void> clear(Principal customer) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void clear(Principal customer) {
         carts.clear(customer.getName());
-        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -69,6 +70,7 @@ class OrderingController {
      * to see the order become {@code CONFIRMED} or {@code REJECTED}.
      */
     @PostMapping("/api/cart/checkout")
+    @ResponseStatus(HttpStatus.ACCEPTED)
     ResponseEntity<OrderView> checkout(Principal customer) {
         OrderView order = carts.checkout(customer.getName());
         return ResponseEntity.accepted().location(URI.create("/api/orders/" + order.id())).body(order);

@@ -11,7 +11,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -43,9 +43,9 @@ class PricingController {
     }
 
     @DeleteMapping("/api/books/{bookId}/price")
-    ResponseEntity<Void> remove(@PathVariable BookId bookId) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void remove(@PathVariable BookId bookId) {
         service.removePrice(bookId);
-        return ResponseEntity.noContent().build();
     }
 
     /**

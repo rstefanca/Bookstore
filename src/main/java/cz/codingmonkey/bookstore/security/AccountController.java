@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -47,6 +48,7 @@ class AccountController {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<AccountResponse> create(@Valid @RequestBody NewAccount request) {
         AccountResponse created = service.create(request.username(), request.firstName(), request.lastName(),
                 request.password(), request.role());
@@ -55,6 +57,7 @@ class AccountController {
 
     /** Open to anyone: creates a customer account. */
     @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<AccountResponse> register(@Valid @RequestBody Registration request) {
         AccountResponse created = service.register(request.username(), request.firstName(), request.lastName(),
                 request.password());
@@ -67,15 +70,15 @@ class AccountController {
     }
 
     @PutMapping("/{id}/password")
-    ResponseEntity<Void> resetPassword(@PathVariable AccountId id, @Valid @RequestBody NewPassword request) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void resetPassword(@PathVariable AccountId id, @Valid @RequestBody NewPassword request) {
         service.resetPassword(id, request.password());
-        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    ResponseEntity<Void> delete(@PathVariable AccountId id, Principal principal) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable AccountId id, Principal principal) {
         service.delete(id, principal.getName());
-        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")
@@ -89,9 +92,9 @@ class AccountController {
     }
 
     @PutMapping("/me/password")
-    ResponseEntity<Void> changeOwnPassword(@Valid @RequestBody PasswordChange request, Principal principal) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void changeOwnPassword(@Valid @RequestBody PasswordChange request, Principal principal) {
         service.changeOwnPassword(principal.getName(), request.currentPassword(), request.newPassword());
-        return ResponseEntity.noContent().build();
     }
 
     /** Two requests created the same username at the same time. */

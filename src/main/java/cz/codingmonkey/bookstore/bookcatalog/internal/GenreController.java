@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -42,6 +43,7 @@ class GenreController {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<GenreResponse> create(@Valid @RequestBody GenreRequest request) {
         GenreResponse created = service.create(request);
         return ResponseEntity.created(URI.create("/api/genres/" + created.id())).body(created);
@@ -53,9 +55,9 @@ class GenreController {
     }
 
     @DeleteMapping("/{id}")
-    ResponseEntity<Void> delete(@PathVariable GenreId id) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable GenreId id) {
         service.delete(id);
-        return ResponseEntity.noContent().build();
     }
 
     /** A concurrent request created the same name, or tagged a book with the genre being deleted. */

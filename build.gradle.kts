@@ -29,6 +29,8 @@ extra["springModulithVersion"] = "2.1.1"
 extra["springAiVersion"] = "2.0.1"
 // Latest stable Log4j 2 (Spring Boot 4.1.1 manages 2.25.x; Log4j 3 is still in beta).
 extra["log4j2.version"] = "2.26.1"
+// OpenAPI spec + Swagger UI; 3.1.x is built against Spring Boot 4.1 (not managed by the Boot BOM).
+extra["springdocVersion"] = "3.1.1"
 
 dependencyManagement {
     imports {
@@ -56,6 +58,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${property("springdocVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")

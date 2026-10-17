@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,6 +37,7 @@ class BookController {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     ResponseEntity<BookResponse> create(@Valid @RequestBody BookRequest request) {
         BookResponse created = service.create(request);
         return ResponseEntity.created(URI.create("/api/books/" + created.id())).body(created);
@@ -47,9 +49,9 @@ class BookController {
     }
 
     @DeleteMapping("/{id}")
-    ResponseEntity<Void> delete(@PathVariable BookId id) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable BookId id) {
         service.delete(id);
-        return ResponseEntity.noContent().build();
     }
 
     /** An author or genre was deleted while being linked to this book. */

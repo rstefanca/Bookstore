@@ -68,6 +68,11 @@ management:
     java:
       enabled: true
 
+springdoc:
+  # OpenAPI spec at /v3/api-docs, Swagger UI at /swagger-ui.html; only the REST API (not /mcp or /actuator).
+  paths-to-match: /api/**
+  default-produces-media-type: application/json
+
 bookstore:
   recommendation:
     # all-MiniLM-L6-v2 (384 dimensions), pinned to the Spring AI 2.0.1 release

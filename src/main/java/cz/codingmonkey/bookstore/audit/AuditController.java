@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.audit;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -43,7 +44,7 @@ class AuditController {
     @GetMapping
     PagedModel<AuditEntryResponse> list(@RequestParam(required = false) @Nullable String subjectType,
             @RequestParam(required = false) @Nullable Long subjectId,
-            @RequestParam MultiValueMap<String, String> parameters,
+            @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters,
             Pageable pageable) {
         if (parameters.containsKey("bookId") || parameters.containsKey("authorId")
                 || parameters.containsKey("orderId")) {
