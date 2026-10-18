@@ -102,7 +102,7 @@ Map<BookId, Integer> ratingsBy(String customer);
 List<BookId> topRated(int offset, int count);
 ```
 
-`ratingsBy` takes the username as the rating module stores it (the principal's name, as for `PUT /rating`).
+`ratingsBy` takes the username as the rating module stores it (the principal's name, as for `PUT /rating`). (Since account deletion the owner is the account id, not the username; see `docs/design/account-deletion.md`.)
 `topRated` breaks ties by id rather than title, since the rating module doesn't know titles.
 
 ### Implementation

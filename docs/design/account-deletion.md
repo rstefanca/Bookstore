@@ -4,9 +4,9 @@ Status: implemented (2026-10-18).
 
 ## Goal
 
-Everything outside `security` identifies a user by username (carts, orders, ratings, saved addresses, the audit
-`actor`, the `customer` and `actor` fields of events), and `AccountService.delete` only removes the `account` row.
-A username that is registered again after a deletion therefore inherits the old user's data. **A new account with a
+Before this change, everything outside `security` identified a user by username (carts, orders, ratings, saved addresses, the audit
+`actor`, the `customer` and `actor` fields of events), and `AccountService.delete` only removed the `account` row.
+A username that was registered again after a deletion therefore inherited the old user's data. **A new account with a
 reused username must inherit nothing** (no cart, orders, ratings, addresses or audit history), for every role, and
 deleting must not erase records the shop needs.
 
@@ -141,6 +141,10 @@ when its account was deleted can still leave a row under that account's id, e.g.
 entry. Nobody can inherit it, because the id is never reused, and it shows as `(deleted user)`. The one visible
 effect is that an order from such a request may keep a shipping address that deletion would have scrubbed. Requests
 made after the delete fail at sign-in (`401`). This is accepted for a one-request window.
+
+The same applies to an order that is rejected after its account was soft-deleted (stock missing, payment declined, or
+redelivered after a restart): `CartService.restore` puts it back into a new cart under the deleted account's id.
+Nobody can see or inherit that cart.
 
 ## 6. Module boundaries and docs
 

@@ -52,7 +52,7 @@ Internal (`rating.internal`): `RatingController`, `RatingService` (implements `R
 Migration `V25__create_book_rating.sql`:
 
 ```sql
--- Owned by the rating module. Customers are referenced by username (accounts belong to the security module).
+-- Owned by the rating module. Customers are referenced by username (accounts belong to the security module; since account deletion by account id, see docs/design/account-deletion.md).
 CREATE TABLE book_rating (
     book_id  BIGINT                   NOT NULL,
     customer VARCHAR(100)             NOT NULL,
@@ -75,7 +75,7 @@ No JPA entity. `BookRatings` uses `JdbcClient`, like `recommendation.BookEmbeddi
 
 ## 3. REST API
 
-All under the book, for the signed-in customer (`Principal.getName()` is the username, as in ordering). New
+All under the book, for the signed-in customer (`Principal.getName()` is the username, as in ordering; since account deletion the id from `CurrentUser.requireId()` is used, see docs/design/account-deletion.md). New
 controller `RatingController` with `@Tag(name = "Ratings")`.
 
 | Method and path | Body | Success | Errors |

@@ -53,8 +53,8 @@ the audit `actor` all point at the id, and events carry it. The username is only
 The signed-in principal carries the id (`CurrentUser.id()`/`requireId()`; `username()` is for display and logging).
 Ids are never reused, so a username registered again after a deletion inherits nothing.
 
-Deleting an account (`DELETE /api/accounts/{id}`, 204, any role) depends on whether any module keeps records for it
-(`security.AccountDeletionPolicy`, implemented by ordering, rating, customer and audit):
+Deleting an account (`DELETE /api/accounts/{id}`, 204) is for admins only and works for accounts of any role. What happens depends on whether any module keeps records
+for the account (`security.AccountDeletionPolicy`, implemented by ordering, rating, customer and audit):
 - **Hard delete** if nobody does: a customer without orders and ratings, a staff member or admin without audit
   entries. The account row and the cart and saved addresses are removed.
 - **Soft delete** otherwise: the account is anonymized (names cleared, password unusable, `deleted_at` set) and
@@ -71,8 +71,10 @@ delete: a request already in flight may still leave a row under the deleted id, 
 can't be inherited. Design: `docs/design/account-deletion.md`.
 
 **Upgrade note:** events stored in the `event_publication` outbox before account ids were introduced carry
-usernames and can't be read afterwards. Stop the application gracefully with no incomplete publications before
-upgrading.
+usernames and can't be read afterwards. Stop the application gracefully and check
+`SELECT count(*) FROM event_publication WHERE completion_date IS NULL` returns 0 before upgrading. If it doesn't,
+let the listeners finish (or resubmit the outstanding publications) first; old failed publications that still hold
+usernames won't be republished successfully and are effectively lost.
 
 Audited events implement `shared.Auditable` and describe themselves: the audit action name, the subject (any
 `shared.LongId`) and the description text. The audit module has a single listener for `Auditable` and depends on

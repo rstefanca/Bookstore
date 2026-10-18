@@ -24,7 +24,7 @@ Agreed with the user:
 - `OrderStep` (public enum): `PLACED`, `STOCK_RESERVED`, `STOCK_MISSING`, `PAYMENT_CHARGED`, `PAYMENT_DECLINED`,
   `CONFIRMED`, `REJECTED`, `CANCELLED`, `STOCK_RELEASED`, `PAYMENT_REFUNDED`.
 - `detail`: short human-readable text for the step (examples below).
-- `actor`: the order's customer (username) for every step, also for steps handled in the background.
+- `actor`: the order's customer (username) for every step, also for steps handled in the background. Since account deletion the actor is the account id (`actorId`), see docs/design/account-deletion.md.
 - `occurredAt`: when the step happened, each later than the one before (microseconds), even for steps published
   together. Audit listeners handle steps in parallel, so audit stores this time instead of its own; otherwise
   "confirmed" could be listed before "charged".
