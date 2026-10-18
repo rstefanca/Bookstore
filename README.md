@@ -20,6 +20,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Audit | `cz.codingmonkey.bookstore.audit` | none | Records an audit trail of every event that implements `shared.Auditable` (book, author, stock, price and order events) |
 | Recommendations | `cz.codingmonkey.bookstore.recommendation` | `Recommendations`, `Recommendation` | Similar-book suggestions (book ids and similarity) from text embeddings stored with pgvector |
 | Ratings | `cz.codingmonkey.bookstore.rating` | `Ratings`, `RatingSummary` | Customers' 1-5 star ratings of books and per-book summaries (implementation in `rating.internal`) |
+| Customers | `cz.codingmonkey.bookstore.customer` | `Address`, `CustomerAddresses` | Customers' saved shipping and invoice addresses (implementation in `customer.internal`) |
 
 ### Security
 
@@ -229,13 +230,17 @@ queues that work by itself. On shutdown the app waits up to 30 seconds for runni
 
 ### Orders
 
-Customers fill a cart (`/api/cart`) and check out. Checkout fixes titles and prices, checks there is enough stock
+Customers fill a cart (`/api/cart`) and check out. Checkout needs a shipping and an invoice address (see Customer
+addresses). It fixes titles and prices, checks there is enough stock
 (else 409 "Not enough stock: Cosmos (0 left). ...", cart kept), creates the order (`PENDING`) and answers
 `202 Accepted` right away; the rest happens in the background:
 
     PENDING --stock reserved--> AWAITING_PAYMENT --paid--> CONFIRMED --customer cancels--> CANCELLED
        |                              |
        +--no stock--> REJECTED        +--payment failed--> REJECTED (stock put back)
+
+Each order keeps its own copy of both addresses (`shipping` and `invoice` in the order response, `null` for orders
+placed before addresses existed), so later edits of the saved addresses don't change it.
 
 A rejected order's books go back into the customer's cart (added to what is there, at most 20 copies each), so
 they can fix it and check out again. Stock can still run out between the check and the reservation, which is the
@@ -265,6 +270,22 @@ be removed. Staff and admins can't rate. `stars` must be a whole number from 1 t
 returns your own rating, or 404 if you haven't rated the book. The rating module checks that the book exists and
 locks it against deletion while saving, like restock and set-price; deleting a book removes its ratings
 (`BookDeletedEvent`). Design: `docs/design/book-ratings.md`.
+
+### Customer addresses
+
+Customers (`CUSTOMER`) save one preferred shipping address and one preferred invoice address
+(`GET /api/me/addresses`, `PUT`/`DELETE /api/me/addresses/shipping` and `/invoice`); both are optional. An address is
+`{name, street, city, postalCode, country}`, all required: `name` up to 100 characters, `street` 200, `city` 100,
+`postalCode` 20, `country` two letters (ISO 3166-1 alpha-2, stored upper-cased); else 400. `DELETE` also succeeds when
+nothing is saved. Staff and admins get 403 and never hold or see address data; the `customer` module keeps addresses
+by username, apart from `Account`.
+
+`POST /api/cart/checkout` takes an optional body `{"shipping": {...}, "invoice": {...}}`. For each address the one in
+the request wins, otherwise the saved one is used; if either is still missing the answer is 400 ("Shipping address is
+required: send one or save one"). The check comes after the empty-cart 409 and before any stock is touched. An address
+sent at checkout applies to that order only and is not saved. The order stores a copy of both; `GET /api/orders/all`
+(staff) lists orders without addresses. Changes are logged with the customer and address type, not the address.
+Design: `docs/design/customer-addresses.md`.
 
 ### Pagination
 
@@ -436,6 +457,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     pricing   ◀──BookDeletedEvent── book                             (removes the price)
     rating    ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (rating checks the book exists)
     rating    ◀──BookDeletedEvent── book                             (removes the ratings)
+    ordering  ──CustomerAddresses──▶ customer   (checkout reads the saved addresses)
     audit     ◀──Auditable events── book, inventory, pricing, ordering
     recommendation ──Ratings.ratingsBy/topRated──▶ rating   (a customer's likes, and the top-rated fallback)
     recommendation ──Prices.pricesOf─────────────▶ pricing  (only books for sale are picked)
@@ -513,6 +535,11 @@ summary.
 | DELETE | /api/books/{id}            | Delete a book; 409 if in stock or ordered |
 | PUT    | /api/books/{id}/rating     | Rate a book, body `{"stars": 4}` (1-5); replaces your earlier rating; 400 for other values, 404 if the book doesn't exist (customer) |
 | GET    | /api/books/{id}/rating     | Your rating of a book; 404 if you haven't rated it (customer) |
+| GET    | /api/me/addresses          | Your saved shipping and invoice addresses, each possibly `null` (customer) |
+| PUT    | /api/me/addresses/shipping | Save your shipping address, body `{"name", "street", "city", "postalCode", "country"}`; 400 if a field is missing or too long, or the country isn't two letters (customer) |
+| PUT    | /api/me/addresses/invoice  | Save your invoice address, same body (customer) |
+| DELETE | /api/me/addresses/shipping | Remove your saved shipping address; 204 also when none is saved (customer) |
+| DELETE | /api/me/addresses/invoice  | Remove your saved invoice address; 204 also when none is saved (customer) |
 | GET    | /api/authors?name=...      | List authors sorted by name (optional name filter) |
 | GET    | /api/authors/{id}          | Get one author              |
 | POST   | /api/authors               | Create an author, body `{"name": "...", "favoriteGenreIds": [9]}` (favorites optional) |
@@ -547,11 +574,11 @@ summary.
 | PUT    | /api/cart/items/{bookId}   | Set quantity, body `{"quantity": 2}` (0 removes; max 20); 409 if not for sale (customer) |
 | DELETE | /api/cart/items/{bookId}   | Remove a book (customer) |
 | DELETE | /api/cart                  | Empty the cart (customer) |
-| POST   | /api/cart/checkout         | Place the order: 202 with the `PENDING` order and its `Location`; 409 for an empty cart, books no longer for sale, or not enough stock (customer) |
+| POST   | /api/cart/checkout         | Place the order, optional body `{"shipping": {...}, "invoice": {...}}` (overrides the saved address for this order only): 202 with the `PENDING` order and its `Location`; 400 if shipping or invoice address is missing (neither sent nor saved); 409 for an empty cart, books no longer for sale, or not enough stock (customer) |
 | GET    | /api/orders                | Your orders, newest first (customer) |
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
-| GET    | /api/orders/all            | All customers' orders (staff) |
+| GET    | /api/orders/all            | All customers' orders, without addresses (staff) |
 | GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
 | GET    | /actuator/health           | Health status, plus `/liveness` and `/readiness` probes (anyone; components for admins) |
 | GET    | /actuator/info, /actuator/metrics, /actuator/prometheus | Build info, metrics and the Prometheus scrape (admin); see Operations |

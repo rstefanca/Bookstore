@@ -36,7 +36,7 @@ or events, never another module's `internal` package or tables.
 Modules: `bookcatalog` (books, authors, genres), `inventory` (stock + reservations), `pricing` (`Money`, list
 prices, price history), `storefront` (customer reads composing catalog + prices + ratings), `ordering` (cart, orders,
 `OrderProcess`), `payment` (fake provider), `audit`, `recommendation` (pgvector embeddings), `rating` (customer
-star ratings), `security` (accounts, `SecurityConfiguration`), `shared` (technical building blocks only, no domain
+star ratings), `customer` (saved shipping/invoice addresses; customers only, staff and admins hold none), `security` (accounts, `SecurityConfiguration`), `shared` (technical building blocks only, no domain
 logic).
 
 Dependencies only point one way. Patterns used to keep it that way:

@@ -36,7 +36,9 @@ the two modules would depend on each other, which Modulith rejects.)
   answers `202 Accepted` with the order and `Location: /api/orders/{id}`. Empty cart or a book no longer for
   sale → `409` with the reason, cart unchanged. Since 2026-10-17 checkout also reads stock (`inventory.Stock`)
   and answers `409` naming each short book and how many are left, cart unchanged
-  (`docs/design/checkout-stock.md`).
+  (`docs/design/checkout-stock.md`). Since 2026-10-18 checkout also needs a shipping and an invoice address (from the
+  optional request body or the customer's saved ones, else `400` before stock is touched) and the order keeps a copy
+  of both (`docs/design/customer-addresses.md`).
 
 ## Orders (`ordering`)
 

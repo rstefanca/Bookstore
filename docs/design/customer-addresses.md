@@ -1,6 +1,9 @@
 # Design: customer addresses
 
-Status: proposed (2026-10-18).
+Status: implemented (2026-10-18).
+
+Decided while planning: field lengths are `name` 100, `street` 200, `city` 100, `postalCode` 20; `country` is two
+letters and normalized to upper case (not rejected); the staff list `GET /api/orders/all` omits addresses.
 
 ## Goal
 
