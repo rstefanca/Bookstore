@@ -52,6 +52,8 @@ class SecurityConfiguration {
                         .requestMatchers(GET, "/api/recommendations").hasRole(Role.CUSTOMER.name())
                         .requestMatchers(GET, "/api/books/*/rating").hasRole(Role.CUSTOMER.name())
                         .requestMatchers(PUT, "/api/books/*/rating").hasRole(Role.CUSTOMER.name())
+                        // Customers: their saved shipping and invoice addresses.
+                        .requestMatchers("/api/me/addresses", "/api/me/addresses/**").hasRole(Role.CUSTOMER.name())
                         // Staff (and admins): maintain the catalog, prices and inventory.
                         .requestMatchers("/api/books/**", "/api/authors/**", "/api/genres/**", "/api/inventory/**")
                         .hasRole(Role.STAFF.name())

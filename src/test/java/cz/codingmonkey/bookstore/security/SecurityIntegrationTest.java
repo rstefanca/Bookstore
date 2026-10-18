@@ -98,6 +98,28 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void onlyCustomersManageTheirAddresses() {
+        String address = "{\"name\":\"A\",\"street\":\"S\",\"city\":\"C\",\"postalCode\":\"1\",\"country\":\"CZ\"}";
+        for (RestTestClient who : new RestTestClient[] {anonymous, staff, admin}) {
+            boolean signedIn = who != anonymous;
+            check(who.get().uri("/api/me/addresses").exchange(), signedIn);
+            for (String kind : new String[] {"shipping", "invoice"}) {
+                check(who.put().uri("/api/me/addresses/" + kind).contentType(MediaType.APPLICATION_JSON)
+                        .body(address).exchange(), signedIn);
+                check(who.delete().uri("/api/me/addresses/" + kind).exchange(), signedIn);
+            }
+        }
+    }
+
+    private static void check(RestTestClient.ResponseSpec response, boolean signedIn) {
+        if (signedIn) {
+            response.expectStatus().isForbidden();
+        } else {
+            response.expectStatus().isUnauthorized();
+        }
+    }
+
+    @Test
     void auditLogAndAccountsAreForAdminsOnly() {
         anonymous.get().uri("/api/audit").exchange().expectStatus().isUnauthorized();
         staff.get().uri("/api/audit").exchange().expectStatus().isForbidden();
