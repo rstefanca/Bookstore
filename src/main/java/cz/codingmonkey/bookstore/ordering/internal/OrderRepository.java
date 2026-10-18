@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 interface OrderRepository extends JpaRepository<CustomerOrder, OrderId> {
 
@@ -18,6 +19,24 @@ interface OrderRepository extends JpaRepository<CustomerOrder, OrderId> {
     Optional<CustomerOrder> findByIdAndCustomer(OrderId id, AccountId customer);
 
     Page<CustomerOrder> findAllBy(Pageable page);
+
+    boolean existsByCustomer(AccountId customer);
+
+    /**
+     * Sets the shipping address group of the customer's orders to NULL (the invoice stays). Bumps {@code version}
+     * too, so an order step that read the order before the scrub fails its version check instead of writing the
+     * address back.
+     *
+     * @return number of orders scrubbed
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE customer_order
+               SET shipping_name = NULL, shipping_street = NULL, shipping_city = NULL,
+                   shipping_postal_code = NULL, shipping_country = NULL, version = version + 1
+             WHERE customer_id = :customer AND shipping_name IS NOT NULL
+            """, nativeQuery = true)
+    int scrubShipping(@Param("customer") long customer);
 
     /** Whether an order in one of the given states has a line for the book. */
     boolean existsByLinesBookIdAndStatusIn(BookId bookId, Collection<OrderStatus> statuses);

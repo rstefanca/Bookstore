@@ -45,12 +45,28 @@ class RatingModuleTests {
     RatingService service;
 
     @Autowired
+    RatingAccountDeletion deletion;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @BeforeEach
     void clean() {
         jdbc.update("DELETE FROM book_rating");
         given(catalog.existsAndLockAgainstDeletion(any())).willReturn(true);
+    }
+
+    @Test
+    void holdsRecordsWithARating() {
+        assertThat(deletion.holdsRecords(A)).isFalse();
+
+        service.rate(DUNE, A, 4);
+
+        assertThat(deletion.holdsRecords(A)).isTrue();
+        assertThat(deletion.holdsRecords(B)).isFalse();
+        deletion.removePersonalData(A);
+        deletion.anonymize(A);
+        assertThat(service.summaryOf(DUNE).count()).as("ratings keep counting").isEqualTo(1);
     }
 
     @Test

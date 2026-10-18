@@ -29,10 +29,33 @@ class CustomerModuleTests {
     AddressService service;
 
     @Autowired
+    CustomerAccountDeletion deletion;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     private static AccountId user() {
         return TestAccountIds.next();
+    }
+
+    @Test
+    void removePersonalDataDeletesAddresses() {
+        AccountId u = user();
+        AccountId other = user();
+        service.saveShipping(u, SHIPPING);
+        service.saveInvoice(u, INVOICE);
+        service.saveShipping(other, SHIPPING);
+
+        assertThat(deletion.holdsRecords(u)).isFalse();
+        deletion.removePersonalData(u);
+        deletion.anonymize(u);
+
+        assertThat(service.get(u).shipping()).isNull();
+        assertThat(service.get(u).invoice()).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM customer_address WHERE customer_id = ?",
+                Integer.class, u.value())).isZero();
+        assertThat(service.get(other).shipping()).isEqualTo(SHIPPING);
+        deletion.removePersonalData(u); // nothing left: still fine
     }
 
     @Test

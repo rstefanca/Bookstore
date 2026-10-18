@@ -112,6 +112,9 @@ class OrderingModuleTests {
     SoldBookDeletionPolicy soldBooks;
 
     @Autowired
+    OrderingAccountDeletion deletion;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     AccountId customer;
@@ -151,6 +154,59 @@ class OrderingModuleTests {
             }
             return found;
         });
+    }
+
+    @Test
+    void holdsRecordsWithAnOrder() {
+        orderRepository.save(new CustomerOrder(customer,
+                List.of(new OrderLine(DUNE, "Dune", 1, BigDecimal.TEN)), Currency.getInstance("EUR"),
+                TestAddresses.SHIPPING, TestAddresses.INVOICE));
+
+        assertThat(deletion.holdsRecords(customer)).isTrue();
+    }
+
+    @Test
+    void doesNotHoldRecordsWithoutOne() {
+        carts.setQuantity(customer, DUNE, 1);
+
+        assertThat(deletion.holdsRecords(customer)).isFalse();
+    }
+
+    @Test
+    void removePersonalDataDeletesTheCart() {
+        carts.setQuantity(customer, DUNE, 2);
+
+        deletion.removePersonalData(customer);
+
+        assertThat(carts.view(customer).items()).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM cart WHERE customer_id = ?", Integer.class,
+                customer.value())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM cart_line WHERE customer_id = ?", Integer.class,
+                customer.value())).isZero();
+        deletion.removePersonalData(customer); // nothing left: still fine
+    }
+
+    @Test
+    void anonymizeScrubsShippingAndKeepsInvoice() {
+        CustomerOrder mine = orderRepository.save(new CustomerOrder(customer,
+                List.of(new OrderLine(DUNE, "Dune", 1, BigDecimal.TEN)), Currency.getInstance("EUR"),
+                TestAddresses.SHIPPING, TestAddresses.INVOICE));
+        AccountId someoneElse = TestAccountIds.next();
+        CustomerOrder theirs = orderRepository.save(new CustomerOrder(someoneElse,
+                List.of(new OrderLine(DUNE, "Dune", 1, BigDecimal.TEN)), Currency.getInstance("EUR"),
+                TestAddresses.SHIPPING, TestAddresses.INVOICE));
+        long versionBefore = jdbc.queryForObject("SELECT version FROM customer_order WHERE id = ?", Long.class,
+                mine.getId().value());
+
+        deletion.anonymize(customer);
+
+        CustomerOrder scrubbed = orderRepository.findById(mine.getId()).orElseThrow();
+        assertThat(scrubbed.getShipping()).isNull();
+        assertThat(scrubbed.getInvoice()).isEqualTo(TestAddresses.INVOICE);
+        assertThat(jdbc.queryForObject("SELECT version FROM customer_order WHERE id = ?", Long.class,
+                mine.getId().value())).isGreaterThan(versionBefore);
+        assertThat(orderRepository.findById(theirs.getId()).orElseThrow().getShipping())
+                .isEqualTo(TestAddresses.SHIPPING);
     }
 
     @Test

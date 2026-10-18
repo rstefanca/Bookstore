@@ -44,9 +44,30 @@ class AuditModuleTests {
     @Autowired
     AuditEntryRepository repository;
 
+    @Autowired
+    AuditAccountDeletion deletion;
+
     /** The security module doesn't run here; the controller needs it to show usernames. */
     @MockitoBean
     Accounts accounts;
+
+    @Test
+    void holdsRecordsWithAnActorEntry(Scenario scenario) {
+        AccountId actor = TestAccountIds.next();
+        assertThat(deletion.holdsRecords(actor)).isFalse();
+
+        scenario.publish(new Audited("ORDER_PLACED", new OrderId(60), "1 copies", actor, Instant.now()))
+                .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(
+                        new AuditSubject("ORDER", 60)), list -> !list.isEmpty())
+                .andVerify(entries -> {
+                    assertThat(deletion.holdsRecords(actor)).isTrue();
+                    assertThat(deletion.holdsRecords(TestAccountIds.next())).isFalse();
+                    deletion.removePersonalData(actor);
+                    deletion.anonymize(actor);
+                    assertThat(repository.findBySubjectOrderByOccurredAtDesc(new AuditSubject("ORDER", 60)))
+                            .singleElement().extracting(AuditEntry::getActorId).isEqualTo(actor);
+                });
+    }
 
     @Test
     void recordsAnySubject(Scenario scenario) {

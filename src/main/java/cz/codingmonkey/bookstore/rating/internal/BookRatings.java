@@ -104,6 +104,13 @@ class BookRatings {
                 .list();
     }
 
+    boolean existsBy(AccountId customer) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM book_rating WHERE customer_id = ?)")
+                .param(customer.value())
+                .query(Boolean.class)
+                .single();
+    }
+
     /** @return number of ratings removed */
     int deleteAll(BookId bookId) {
         return jdbc.sql("DELETE FROM book_rating WHERE book_id = ?").param(bookId.value()).update();
