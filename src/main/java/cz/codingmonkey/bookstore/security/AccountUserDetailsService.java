@@ -20,7 +20,7 @@ class AccountUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) {
-        return accounts.findByUsernameIgnoreCase(username)
+        return accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
                 .map(account -> new AccountUser(account.getId(), account.getUsername(), account.getPasswordHash(),
                         AuthorityUtils.createAuthorityList("ROLE_" + account.getRole().name())))
                 .orElseThrow(() -> new UsernameNotFoundException(username));

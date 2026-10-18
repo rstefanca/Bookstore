@@ -3,8 +3,15 @@ package cz.codingmonkey.bookstore.security;
 import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,30 +20,42 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-class AccountService {
+class AccountService implements Accounts {
 
     static final int MIN_PASSWORD_LENGTH = 12;
 
     /** BCrypt only uses the first 72 bytes; longer passwords would be silently truncated. */
     static final int MAX_PASSWORD_BYTES = 72;
 
+    private static final String TOMBSTONE_PREFIX = "~deleted-";
     private static final Pattern USERNAME = Pattern.compile("[A-Za-z0-9._-]{3,100}");
     private static final ChangeLog changes = ChangeLog.of(AccountService.class);
 
     private final AccountRepository accounts;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectProvider<AccountDeletionPolicy> deletionPolicies;
 
-    AccountService(AccountRepository accounts, PasswordEncoder passwordEncoder) {
+    AccountService(AccountRepository accounts, PasswordEncoder passwordEncoder,
+            ObjectProvider<AccountDeletionPolicy> deletionPolicies) {
         this.accounts = accounts;
         this.passwordEncoder = passwordEncoder;
+        this.deletionPolicies = deletionPolicies;
+    }
+
+    @Override
+    public Map<AccountId, String> usernamesOf(Collection<AccountId> ids) {
+        Map<AccountId, String> names = new HashMap<>();
+        ids.forEach(id -> names.put(id, DELETED_USER));
+        accounts.findAllByIdInAndDeletedAtIsNull(ids).forEach(account -> names.put(account.getId(), account.getUsername()));
+        return names;
     }
 
     Page<AccountResponse> findAll(Pageable page) {
-        return accounts.findAllBy(page).map(AccountResponse::from);
+        return accounts.findAllByDeletedAtIsNull(page).map(AccountResponse::from);
     }
 
     AccountResponse findByUsername(String username) {
-        return accounts.findByUsernameIgnoreCase(username).map(AccountResponse::from)
+        return accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username).map(AccountResponse::from)
                 .orElseThrow(() -> new InvalidAccountException("No account " + username));
     }
 
@@ -56,7 +75,7 @@ class AccountService {
                     "Usernames have 3-100 characters: letters, digits, '.', '_' or '-'");
         }
         checkPassword(password);
-        if (accounts.existsByUsernameIgnoreCase(username)) {
+        if (accounts.existsByUsernameIgnoreCaseAndDeletedAtIsNull(username)) {
             throw new DuplicateUsernameException(username);
         }
         Account account = accounts.save(new Account(username, strip(firstName), strip(lastName),
@@ -80,7 +99,7 @@ class AccountService {
     /** Anyone changes their own name. */
     @Transactional
     AccountResponse renameOwn(String username, String firstName, String lastName) {
-        return rename(accounts.findByUsernameIgnoreCase(username)
+        return rename(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
                 .orElseThrow(() -> new InvalidAccountException("No account " + username)), firstName, lastName);
     }
 
@@ -102,7 +121,7 @@ class AccountService {
     /** Anyone changes their own password, confirming the current one. */
     @Transactional
     void changeOwnPassword(String username, String currentPassword, String newPassword) {
-        Account account = accounts.findByUsernameIgnoreCase(username)
+        Account account = accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
                 .orElseThrow(() -> new InvalidAccountException("No account " + username));
         if (!passwordEncoder.matches(currentPassword, account.getPasswordHash())) {
             throw new InvalidAccountException("The current password is incorrect");
@@ -115,6 +134,9 @@ class AccountService {
     /**
      * Deletes an account. You can't delete your own account, and there is always at least one admin left: admin
      * rows are locked while checking, so two admins can't delete each other at the same time.
+     * <p>
+     * If any {@link AccountDeletionPolicy} holds records of the account, it is soft-deleted (anonymized) instead
+     * of removed.
      */
     @Transactional
     void delete(AccountId id, String currentUsername) {
@@ -122,11 +144,25 @@ class AccountService {
         if (account.getUsername().equalsIgnoreCase(currentUsername)) {
             throw new LastAdminException("You can't delete your own account");
         }
-        if (account.getRole() == Role.ADMIN && accounts.findAndLockByRole(Role.ADMIN).size() <= 1) {
+        if (account.getRole() == Role.ADMIN
+                && accounts.findAndLockByRoleAndDeletedAtIsNull(Role.ADMIN).size() <= 1) {
             throw new LastAdminException("Can't delete the last admin account");
         }
-        accounts.delete(account);
-        changes.info("Deleted account {} \"{}\"", id, account.getUsername());
+        // Lock first so no other module can change what the policies are about to check.
+        accounts.findAndLockById(id).filter(locked -> locked.getDeletedAt() == null)
+                .orElseThrow(() -> new AccountNotFoundException(id));
+        List<AccountDeletionPolicy> policies = deletionPolicies.orderedStream().toList();
+        boolean holdsRecords = policies.stream().anyMatch(policy -> policy.holdsRecords(id));
+        policies.forEach(policy -> policy.removePersonalData(id));
+        if (holdsRecords) {
+            policies.forEach(policy -> policy.anonymize(id));
+            account.anonymize(TOMBSTONE_PREFIX + id.value(), passwordEncoder.encode(UUID.randomUUID().toString()),
+                    Instant.now());
+            changes.info("Anonymized account {}", id);
+        } else {
+            accounts.delete(account);
+            changes.info("Deleted account {}", id);
+        }
     }
 
     private void checkPassword(String password) {
@@ -145,6 +181,6 @@ class AccountService {
     }
 
     private Account get(AccountId id) {
-        return accounts.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+        return accounts.findById(id).filter(account -> account.getDeletedAt() == null).orElseThrow(() -> new AccountNotFoundException(id));
     }
 }

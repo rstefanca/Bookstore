@@ -62,6 +62,11 @@ class AccountIntegrationTest {
     }
 
     @Test
+    void tombstoneNamesCannotBeRegistered() {
+        create("~deleted-5", "a-long-password", "STAFF").expectStatus().isBadRequest();
+    }
+
+    @Test
     void requiresFirstAndLastName() {
         String noFirstName = """
                 {"username": "%s", "lastName": "Doe", "password": "a-long-password", "role": "STAFF"}

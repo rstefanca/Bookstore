@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import java.time.Instant;
 import org.hibernate.annotations.Type;
 import org.jspecify.annotations.Nullable;
 
@@ -40,6 +41,9 @@ class Account {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    /** Set when the account was soft-deleted: other modules still keep records of it. */
+    private @Nullable Instant deletedAt;
+
     protected Account() {
     }
 
@@ -57,6 +61,7 @@ class Account {
     @Nullable String getFirstName() { return firstName; }
     @Nullable String getLastName() { return lastName; }
     Role getRole() { return role; }
+    @Nullable Instant getDeletedAt() { return deletedAt; }
 
     void rename(@Nullable String firstName, @Nullable String lastName) {
         this.firstName = firstName;
@@ -65,5 +70,14 @@ class Account {
 
     void changePasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    /** Turns the account into an anonymous tombstone that nobody can sign in to. */
+    void anonymize(String tombstoneUsername, String unusablePasswordHash, Instant deletedAt) {
+        this.username = tombstoneUsername;
+        this.firstName = null;
+        this.lastName = null;
+        this.passwordHash = unusablePasswordHash;
+        this.deletedAt = deletedAt;
     }
 }

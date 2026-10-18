@@ -39,7 +39,7 @@ class DemoAccountDataIntegrationTest {
 
     @Test
     void theInitialAdminIsStillCreated() {
-        assertThat(accounts.findByUsernameIgnoreCase(TestAccounts.ADMIN_USERNAME))
+        assertThat(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(TestAccounts.ADMIN_USERNAME))
                 .hasValueSatisfying(admin -> assertThat(admin.getRole()).isEqualTo(Role.ADMIN));
     }
 
