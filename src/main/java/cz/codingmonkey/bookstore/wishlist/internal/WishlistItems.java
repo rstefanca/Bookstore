@@ -2,9 +2,13 @@ package cz.codingmonkey.bookstore.wishlist.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.wishlist.WishlistEntry;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -33,6 +37,22 @@ class WishlistItems {
                 .param(account.value())
                 .query(Integer.class)
                 .single();
+    }
+
+    /** One page of the account's list, newest added first; the page's sort is ignored. */
+    Page<WishlistEntry> page(AccountId account, Pageable page) {
+        var entries = jdbc.sql("""
+                SELECT book_id, added_at FROM wishlist_item WHERE account_id = ?
+                ORDER BY added_at DESC, book_id
+                LIMIT ? OFFSET ?
+                """)
+                .param(account.value())
+                .param(page.getPageSize())
+                .param(page.getOffset())
+                .query((rs, row) -> new WishlistEntry(new BookId(rs.getLong("book_id")),
+                        rs.getObject("added_at", OffsetDateTime.class).toInstant()))
+                .list();
+        return new PageImpl<>(entries, page, count(account));
     }
 
     /** Adds the book unless it is already on the list. */

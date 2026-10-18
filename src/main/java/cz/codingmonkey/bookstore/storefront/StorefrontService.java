@@ -11,10 +11,14 @@ import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import cz.codingmonkey.bookstore.recommendation.Recommendation;
 import cz.codingmonkey.bookstore.recommendation.Recommendations;
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.wishlist.Wishlist;
+import cz.codingmonkey.bookstore.wishlist.WishlistEntry;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -45,17 +49,20 @@ class StorefrontService {
     private final Prices prices;
     private final Ratings ratings;
     private final Recommendations recommendations;
+    private final Wishlist wishlist;
 
     /**
      * Runs independent queries side by side, each on its own virtual thread.
      */
     private final TaskExecutor queries = new VirtualThreadTaskExecutor("storefront-query-");
 
-    StorefrontService(BookCatalog catalog, Prices prices, Ratings ratings, Recommendations recommendations) {
+    StorefrontService(BookCatalog catalog, Prices prices, Ratings ratings, Recommendations recommendations,
+                      Wishlist wishlist) {
         this.catalog = catalog;
         this.prices = prices;
         this.ratings = ratings;
         this.recommendations = recommendations;
+        this.wishlist = wishlist;
     }
 
     /**
@@ -151,6 +158,39 @@ class StorefrontService {
                 .map(book -> SimilarBook.of(detailsById.get(book.bookId()), pricesById.get(book.bookId()),
                         ratingsById.getOrDefault(book.bookId(), RatingSummary.NONE), book.similarity()))
                 .toList();
+    }
+
+    /**
+     * A page of the customer's wishlist with the books' details, prices and rating summaries, newest added first.
+     * The details, prices and ratings are fetched side by side once the page of entries is known. A book that was
+     * just deleted is skipped (the wishlist drops its entries a moment later), so the page may have fewer items
+     * than its size.
+     */
+    Page<WishlistedBook> findWishlist(AccountId account, Pageable page) {
+        Page<WishlistEntry> entries = wishlist.entriesOf(account, page);
+        if (entries.isEmpty()) {
+            return new PageImpl<>(List.of(), page, entries.getTotalElements());
+        }
+        List<BookId> ids = entries.map(WishlistEntry::bookId).getContent();
+        CompletableFuture<Map<BookId, BookDetails>> bookDetails = CompletableFuture.supplyAsync(
+                () -> catalog.findBooks(new BookSearch(null, null, null, null).matching(among(ids)), Pageable.unpaged())
+                        .stream().collect(Collectors.toMap(BookDetails::id, Function.identity())),
+                queries);
+        CompletableFuture<Map<BookId, Money>> bookPrices =
+                CompletableFuture.supplyAsync(() -> prices.pricesOf(ids), queries);
+        CompletableFuture<Map<BookId, RatingSummary>> bookRatings =
+                CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+        Map<BookId, BookDetails> detailsById = join(bookDetails);
+        Map<BookId, Money> pricesById = join(bookPrices);
+        Map<BookId, RatingSummary> ratingsById = join(bookRatings);
+        List<WishlistedBook> items = entries.stream()
+                .filter(entry -> detailsById.containsKey(entry.bookId()))
+                .map(entry -> new WishlistedBook(
+                        StorefrontBook.of(detailsById.get(entry.bookId()), pricesById.get(entry.bookId()),
+                                ratingsById.getOrDefault(entry.bookId(), RatingSummary.NONE)),
+                        entry.addedAt()))
+                .toList();
+        return new PageImpl<>(items, page, entries.getTotalElements());
     }
 
     /**

@@ -133,10 +133,107 @@ class WishlistIntegrationTest {
     }
 
     @Test
+    void listsNewestAddedFirstWithPriceAndRating() {
+        long first = createBook("First");
+        long second = createBook("Second");
+        long third = createBook("Third");
+        setPrice(second, "12.50");
+        rate(customer, second, 4);
+        put(customer, first).expectStatus().isNoContent();
+        put(customer, second).expectStatus().isNoContent();
+        put(customer, third).expectStatus().isNoContent();
+
+        customer.get().uri("/api/me/wishlist").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.content.length()").isEqualTo(3)
+                .jsonPath("$.content[0].book.title").isEqualTo("Third")
+                .jsonPath("$.content[1].book.title").isEqualTo("Second")
+                .jsonPath("$.content[2].book.title").isEqualTo("First")
+                .jsonPath("$.content[1].book.price.amount").isEqualTo(12.5)
+                .jsonPath("$.content[1].book.rating.count").isEqualTo(1)
+                .jsonPath("$.content[1].addedAt").isNotEmpty();
+    }
+
+    @Test
+    void aBookWithoutAPriceIsListedWithNullPrice() {
+        put(customer, book).expectStatus().isNoContent();
+
+        customer.get().uri("/api/me/wishlist").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.content.length()").isEqualTo(1)
+                .jsonPath("$.content[0].book.id").isEqualTo(book)
+                .jsonPath("$.content[0].book.price").isEmpty();
+    }
+
+    @Test
+    void anEmptyWishlistIsAnEmptyPage() {
+        customer.get().uri("/api/me/wishlist").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.content.length()").isEqualTo(0)
+                .jsonPath("$.page.totalElements").isEqualTo(0);
+    }
+
+    @Test
+    void pagingSplitsTheList() {
+        for (int i = 0; i < 3; i++) {
+            put(customer, createBook()).expectStatus().isNoContent();
+        }
+
+        customer.get().uri("/api/me/wishlist?size=2&page=0").exchange().expectBody()
+                .jsonPath("$.content.length()").isEqualTo(2)
+                .jsonPath("$.page.totalElements").isEqualTo(3);
+        customer.get().uri("/api/me/wishlist?size=2&page=1").exchange().expectBody()
+                .jsonPath("$.content.length()").isEqualTo(1);
+    }
+
+    @Test
+    void customersSeeOnlyTheirOwnList() {
+        RestTestClient other = signUp(username("other"));
+        put(customer, book).expectStatus().isNoContent();
+
+        other.get().uri("/api/me/wishlist").exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.content.length()").isEqualTo(0);
+    }
+
+    @Test
+    void aDeletedBookIsSkippedBeforeCleanup() {
+        long gone = createBook("Gone");
+        put(customer, gone).expectStatus().isNoContent();
+        put(customer, book).expectStatus().isNoContent();
+        // The delete publishes an event; its listener may not have run yet when we read.
+        staff.delete().uri("/api/books/{id}", gone).exchange().expectStatus().isNoContent();
+
+        customer.get().uri("/api/me/wishlist").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.content.length()").isEqualTo(1)
+                .jsonPath("$.content[0].book.id").isEqualTo(book);
+    }
+
+    @Test
+    void listIsForbiddenForStaff() {
+        staff.get().uri("/api/me/wishlist").exchange().expectStatus().isForbidden();
+    }
+
+    @Test
     void anonymousIs401() {
         RestTestClient anonymous = RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
 
         put(anonymous, book).expectStatus().isUnauthorized();
+    }
+
+    private void setPrice(long bookId, String amount) {
+        staff.put().uri("/api/books/{id}/price", bookId).contentType(MediaType.APPLICATION_JSON)
+                .body("{\"amount\": " + amount + "}").exchange().expectStatus().isOk();
+    }
+
+    private void rate(RestTestClient client, long bookId, int stars) {
+        client.put().uri("/api/books/{id}/rating", bookId).contentType(MediaType.APPLICATION_JSON)
+                .body("{\"stars\": " + stars + "}").exchange().expectStatus().isOk();
     }
 
     private RestTestClient.ResponseSpec put(RestTestClient client, long bookId) {
@@ -157,6 +254,10 @@ class WishlistIntegrationTest {
     }
 
     private long createBook() {
+        return createBook("Book " + UUID.randomUUID().toString().substring(0, 8));
+    }
+
+    private long createBook(String title) {
         String isbn = "wsh-" + UUID.randomUUID().toString().substring(0, 12);
         var author = staff.post().uri("/api/authors").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"name\": \"Wished Author\"}").exchange()
@@ -164,7 +265,7 @@ class WishlistIntegrationTest {
                 .expectBody(Map.class).returnResult().getResponseBody();
         long authorId = ((Number) author.get("id")).longValue();
         var created = staff.post().uri("/api/books").contentType(MediaType.APPLICATION_JSON)
-                .body("{\"title\": \"Book %s\", \"authorIds\": [%d], \"isbn\": \"%s\"}".formatted(isbn, authorId, isbn))
+                .body("{\"title\": \"%s\", \"authorIds\": [%d], \"isbn\": \"%s\"}".formatted(title, authorId, isbn))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody(Map.class).returnResult().getResponseBody();

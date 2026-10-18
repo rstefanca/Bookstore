@@ -5,15 +5,19 @@ import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
+import cz.codingmonkey.bookstore.wishlist.Wishlist;
+import cz.codingmonkey.bookstore.wishlist.WishlistEntry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-class WishlistService {
+class WishlistService implements Wishlist {
 
     /** The most books one customer can have on the list. */
     static final int LIMIT = 200;
@@ -26,6 +30,11 @@ class WishlistService {
     WishlistService(WishlistItems items, BookCatalog books) {
         this.items = items;
         this.books = books;
+    }
+
+    @Override
+    public Page<WishlistEntry> entriesOf(AccountId account, Pageable page) {
+        return items.page(account, page);
     }
 
     /**

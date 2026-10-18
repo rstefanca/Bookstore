@@ -25,6 +25,7 @@ import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import cz.codingmonkey.bookstore.recommendation.Recommendation;
 import cz.codingmonkey.bookstore.recommendation.Recommendations;
+import cz.codingmonkey.bookstore.wishlist.Wishlist;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,7 @@ import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
- * Bootstraps only the storefront; the catalog, pricing, rating and recommendation modules are mocked through their
+ * Bootstraps only the storefront; the catalog, pricing, rating and recommendation and wishlist modules are mocked through their
  * public APIs.
  */
 @ApplicationModuleTest
@@ -55,6 +56,9 @@ class StorefrontModuleTests {
 
     @MockitoBean
     BookCatalog catalog;
+
+    @MockitoBean
+    Wishlist wishlist;
 
     @MockitoBean
     Prices prices;
