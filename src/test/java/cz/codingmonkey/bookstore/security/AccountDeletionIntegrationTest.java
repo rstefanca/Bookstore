@@ -9,8 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +26,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
@@ -87,6 +92,12 @@ class AccountDeletionIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    TransactionTemplate transaction;
+
+    @Autowired
+    EntityManager entityManager;
 
     String username;
 
@@ -199,6 +210,66 @@ class AccountDeletionIntegrationTest {
                 .containsEntry(new AccountId(gone), Accounts.DELETED_USER)
                 .containsEntry(unknown, Accounts.DELETED_USER)
                 .hasSize(3);
+    }
+
+    @Test
+    void concurrentDoubleDeleteSecondGets404() throws Exception {
+        long id = createdId(username, "CUSTOMER");
+        AccountId accountId = new AccountId(id);
+        policy.holding.add(accountId);
+        CompletableFuture<Void> second = new CompletableFuture<>();
+
+        transaction.executeWithoutResult(status -> {
+            lockRow(accountId);
+            runAsync(second, () -> service.delete(accountId, "nobody-2")); // loads the account, then waits for the lock
+            sleep(500);
+            service.delete(accountId, "nobody-1");
+        });
+
+        assertThatThrownBy(() -> second.get(10, java.util.concurrent.TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(AccountNotFoundException.class);
+        assertThat(policy.anonymized).containsExactly(accountId);
+    }
+
+    @Test
+    void renameRacingASoftDeleteDoesNotResurrectTheAccount() throws Exception {
+        long id = createdId(username, "CUSTOMER");
+        AccountId accountId = new AccountId(id);
+        policy.holding.add(accountId);
+        CompletableFuture<Void> rename = new CompletableFuture<>();
+
+        transaction.executeWithoutResult(status -> {
+            lockRow(accountId);
+            runAsync(rename, () -> service.rename(accountId, "New", "Name"));
+            sleep(500);
+            service.delete(accountId, "nobody");
+        });
+
+        assertThatThrownBy(() -> rename.get(10, java.util.concurrent.TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(AccountNotFoundException.class);
+        Map<String, Object> row = jdbc.queryForMap("select * from account where id = ?", id);
+        assertThat(row.get("deleted_at")).isNotNull();
+        assertThat(row.get("username")).isEqualTo("~deleted-" + id);
+        assertThat(row.get("first_name")).isNull();
+    }
+
+    private void lockRow(AccountId id) {
+        entityManager.find(Account.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    private static void runAsync(CompletableFuture<Void> result, Runnable action) {
+        CompletableFuture.runAsync(action).whenComplete((ok, error) -> {
+            if (error != null) result.completeExceptionally(error.getCause() != null ? error.getCause() : error);
+            else result.complete(null);
+        });
+    }
+
+    private static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private long createdId(String name, String role) {

@@ -2,6 +2,9 @@ package cz.codingmonkey.bookstore.security;
 
 import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.LockModeType;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collection;
@@ -34,12 +37,14 @@ class AccountService implements Accounts {
     private final AccountRepository accounts;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<AccountDeletionPolicy> deletionPolicies;
+    private final EntityManager entityManager;
 
     AccountService(AccountRepository accounts, PasswordEncoder passwordEncoder,
-            ObjectProvider<AccountDeletionPolicy> deletionPolicies) {
+            ObjectProvider<AccountDeletionPolicy> deletionPolicies, EntityManager entityManager) {
         this.accounts = accounts;
         this.passwordEncoder = passwordEncoder;
         this.deletionPolicies = deletionPolicies;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -93,14 +98,14 @@ class AccountService implements Accounts {
     /** An admin corrects someone's name. */
     @Transactional
     AccountResponse rename(AccountId id, String firstName, String lastName) {
-        return rename(get(id), firstName, lastName);
+        return rename(lockLive(get(id)), firstName, lastName);
     }
 
     /** Anyone changes their own name. */
     @Transactional
     AccountResponse renameOwn(String username, String firstName, String lastName) {
-        return rename(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
-                .orElseThrow(() -> new InvalidAccountException("No account " + username)), firstName, lastName);
+        return rename(lockLive(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
+                .orElseThrow(() -> new InvalidAccountException("No account " + username))), firstName, lastName);
     }
 
     private AccountResponse rename(Account account, String firstName, String lastName) {
@@ -113,7 +118,7 @@ class AccountService implements Accounts {
     @Transactional
     void resetPassword(AccountId id, String password) {
         checkPassword(password);
-        Account account = get(id);
+        Account account = lockLive(get(id));
         account.changePasswordHash(passwordEncoder.encode(password));
         changes.info("Reset password of account {} \"{}\"", id, account.getUsername());
     }
@@ -121,8 +126,8 @@ class AccountService implements Accounts {
     /** Anyone changes their own password, confirming the current one. */
     @Transactional
     void changeOwnPassword(String username, String currentPassword, String newPassword) {
-        Account account = accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
-                .orElseThrow(() -> new InvalidAccountException("No account " + username));
+        Account account = lockLive(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
+                .orElseThrow(() -> new InvalidAccountException("No account " + username)));
         if (!passwordEncoder.matches(currentPassword, account.getPasswordHash())) {
             throw new InvalidAccountException("The current password is incorrect");
         }
@@ -149,8 +154,7 @@ class AccountService implements Accounts {
             throw new LastAdminException("Can't delete the last admin account");
         }
         // Lock first so no other module can change what the policies are about to check.
-        accounts.findAndLockById(id).filter(locked -> locked.getDeletedAt() == null)
-                .orElseThrow(() -> new AccountNotFoundException(id));
+        lockLive(account);
         List<AccountDeletionPolicy> policies = deletionPolicies.orderedStream().toList();
         boolean holdsRecords = policies.stream().anyMatch(policy -> policy.holdsRecords(id));
         policies.forEach(policy -> policy.removePersonalData(id));
@@ -178,6 +182,24 @@ class AccountService implements Accounts {
 
     private static @Nullable String strip(@Nullable String name) {
         return name == null ? null : name.strip();
+    }
+
+    /**
+     * Locks the account's row {@code FOR UPDATE} and reloads it, so a delete that committed after the account was
+     * loaded is seen (and not overwritten by Hibernate's full-row update).
+     *
+     * @throws AccountNotFoundException if the account was deleted or soft-deleted in the meantime
+     */
+    private Account lockLive(Account account) {
+        try {
+            entityManager.refresh(account, LockModeType.PESSIMISTIC_WRITE);
+        } catch (EntityNotFoundException gone) {
+            throw new AccountNotFoundException(account.getId());
+        }
+        if (account.getDeletedAt() != null) {
+            throw new AccountNotFoundException(account.getId());
+        }
+        return account;
     }
 
     private Account get(AccountId id) {

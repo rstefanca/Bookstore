@@ -24,8 +24,4 @@ interface AccountRepository extends JpaRepository<Account, AccountId> {
     /** {@code SELECT ... FOR UPDATE}: serializes changes that must keep at least one admin. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Account> findAndLockByRoleAndDeletedAtIsNull(Role role);
-
-    /** {@code SELECT ... FOR UPDATE} of one account. */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Account> findAndLockById(AccountId id);
 }
