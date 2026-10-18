@@ -9,8 +9,8 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 
 | Module | Package | Public API | Responsibility |
 |--------|---------|------------|----------------|
-| Security | `cz.codingmonkey.bookstore.security` | none | Staff accounts and the access rules for every endpoint |
-| Shared | `cz.codingmonkey.bookstore.shared` | `LongId`, `LongIdType` | Technical building blocks (id persistence, caching setup), no domain logic |
+| Security | `cz.codingmonkey.bookstore.security` | `AccountDeletionPolicy` SPI, `Accounts` | Accounts (identified by `AccountId`), deleting them, and the access rules for every endpoint |
+| Shared | `cz.codingmonkey.bookstore.shared` | `LongId`, `LongIdType`, `AccountId` | Technical building blocks (id persistence, caching setup), no domain logic |
 | Book Catalog | `cz.codingmonkey.bookstore.bookcatalog` | `BookId`, `AuthorId`, `GenreId`, `BookDetails`, `BookSearch`, `BookCondition`, `BookOrder`; `BookCreatedEvent`, `BookUpdatedEvent`, `BookDeletedEvent`, `AuthorCreatedEvent` events; `BookCatalog`; `BookDeletionPolicy` SPI | Books, authors and genres (implementation in `bookcatalog.internal`) |
 | Inventory | `cz.codingmonkey.bookstore.inventory` | `Stock`; `StockAdjustedEvent`; stock reservation request/result events | Stock level per book; blocks deleting books in stock (implementation in `inventory.internal`) |
 | Pricing | `cz.codingmonkey.bookstore.pricing` | `Money`, `Prices`; `PriceChangedEvent` | List price per book in the store currency (implementation in `pricing.internal`) |
@@ -45,7 +45,34 @@ The first admin is created at startup when no account exists: `bookstore.securit
 password, a random one is generated and logged once (WARN). Admins manage accounts through `/api/accounts`;
 every account has a first and last name (accounts created before names existed have
 none until set), and passwords need 12-72 bytes (BCrypt ignores anything past 72). You can't delete your own account, and the last admin
-can't be deleted, even by two admins deleting each other at the same moment (admin rows are locked while checking).
+can't be deleted, even by two admins deleting each other at the same moment (admin rows are locked while checking;
+soft-deleted accounts don't count as admins).
+
+Accounts are identified by `AccountId` (in `shared`), not by username: carts, orders, ratings, saved addresses and
+the audit `actor` all point at the id, and events carry it. The username is only the login name and a display name.
+The signed-in principal carries the id (`CurrentUser.id()`/`requireId()`; `username()` is for display and logging).
+Ids are never reused, so a username registered again after a deletion inherits nothing.
+
+Deleting an account (`DELETE /api/accounts/{id}`, 204, any role) depends on whether any module keeps records for it
+(`security.AccountDeletionPolicy`, implemented by ordering, rating, customer and audit):
+- **Hard delete** if nobody does: a customer without orders and ratings, a staff member or admin without audit
+  entries. The account row and the cart and saved addresses are removed.
+- **Soft delete** otherwise: the account is anonymized (names cleared, password unusable, `deleted_at` set) and
+  renamed to the tombstone `~deleted-<id>` (`~` can't be typed in a username). It can't sign in (401), is hidden from
+  `GET /api/accounts`, and doesn't count as an admin. Its orders, ratings and audit entries stay; the cart and saved
+  addresses are deleted; the shipping address of its orders is scrubbed (NULL), the invoice address is kept. The old
+  username is free to register again, and the new account sees none of the old data.
+
+The `customer` field of orders and the `actor` field of audit entries are still username strings, resolved when read
+(`(deleted user)` for soft-deleted or unknown accounts), and the responses also have `customerId` and `actorId`.
+The shipping scrub doesn't bump the order's `version` (`CustomerOrder` is `@DynamicUpdate`), so an order step racing
+it neither undoes it nor fails. Writers (cart, checkout, rating, addresses) are not locked against a concurrent
+delete: a request already in flight may still leave a row under the deleted id, which shows as `(deleted user)` and
+can't be inherited. Design: `docs/design/account-deletion.md`.
+
+**Upgrade note:** events stored in the `event_publication` outbox before account ids were introduced carry
+usernames and can't be read afterwards. Stop the application gracefully with no incomplete publications before
+upgrading.
 
 Audited events implement `shared.Auditable` and describe themselves: the audit action name, the subject (any
 `shared.LongId`) and the description text. The audit module has a single listener for `Auditable` and depends only on
@@ -54,7 +81,7 @@ Audited events implement `shared.Auditable` and describe themselves: the audit a
 change in the audit module. An event that sets its own `occurredAt` and is delivered again is skipped when an entry
 with the same subject, action and `occurredAt` exists.
 
-Audit entries record who made each change (`actor`: the username). The audited events carry the actor, taken
+Audit entries record who made each change (`actor`: the username, resolved when read; `actorId`: the account id). The audited events carry the actor's `AccountId`, taken
 from the signed-in user when the change is made (`shared.CurrentUser`), because the audit listeners run in the
 background where nobody is signed in. Follow-up changes inherit it: the price removed after a book was deleted is
 attributed to whoever deleted the book. Changes without a signed-in user (startup, background work) and entries
@@ -265,7 +292,7 @@ a delete can't slip in between (`CheckoutDeleteRaceTest`).
 ### Ratings
 
 Customers (`CUSTOMER`) rate a book with 1 to 5 stars (`PUT /api/books/{id}/rating`, body `{"stars": 4}`). Each
-customer has one rating per book (usernames compare case-insensitively); rating again replaces it, and ratings can't
+customer (account) has one rating per book; rating again replaces it, and ratings can't
 be removed. Staff and admins can't rate. `stars` must be a whole number from 1 to 5, else 400. `GET` on the same path
 returns your own rating, or 404 if you haven't rated the book. The rating module checks that the book exists and
 locks it against deletion while saving, like restock and set-price; deleting a book removes its ratings
@@ -278,7 +305,7 @@ Customers (`CUSTOMER`) save one preferred shipping address and one preferred inv
 `{name, street, city, postalCode, country}`, all required: `name` up to 100 characters, `street` 200, `city` 100,
 `postalCode` 20, `country` two letters (ISO 3166-1 alpha-2, stored upper-cased); else 400. `DELETE` also succeeds when
 nothing is saved. Staff and admins get 403 and never hold or see address data; the `customer` module keeps addresses
-by username, apart from `Account`.
+by account id, apart from `Account`.
 
 `POST /api/cart/checkout` takes an optional body `{"shipping": {...}, "invoice": {...}}`. For each address the one in
 the request wins, otherwise the saved one is used; if either is still missing the answer is 400 ("Shipping address is
@@ -460,6 +487,8 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     rating    ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (rating checks the book exists)
     rating    ◀──BookDeletedEvent── book                             (removes the ratings)
     ordering  ──CustomerAddresses──▶ customer   (checkout reads the saved addresses)
+    ordering, rating, customer, audit ──implements AccountDeletionPolicy──▶ security   (clean up or anonymize on account deletion)
+    ordering, audit ──Accounts.usernamesOf──▶ security   (usernames shown for customer and actor)
     audit     ◀──Auditable events── book, inventory, pricing, ordering
     recommendation ──Ratings.ratingsBy/topRated──▶ rating   (a customer's likes, and the top-rated fallback)
     recommendation ──Prices.pricesOf─────────────▶ pricing  (only books for sale are picked)
@@ -567,7 +596,7 @@ summary.
 | POST   | /api/accounts              | Create an account, body `{"username": "...", "firstName": "...", "lastName": "...", "password": "...", "role": "STAFF"}` (admin) |
 | PUT    | /api/accounts/{id}         | Change an account's name, body `{"firstName": "...", "lastName": "..."}` (admin) |
 | PUT    | /api/accounts/{id}/password | Reset an account's password, body `{"password": "..."}` (admin) |
-| DELETE | /api/accounts/{id}         | Delete an account; 409 for your own or the last admin (admin) |
+| DELETE | /api/accounts/{id}         | Delete an account: hard if no module keeps records for it, else soft (anonymized, orders/ratings/audit kept, can't sign in); 409 for your own or the last admin (admin) |
 | POST   | /api/accounts/register     | Sign up as a customer, body `{"username": "...", "firstName": "...", "lastName": "...", "password": "..."}` (anyone) |
 | GET    | /api/accounts/me           | The signed-in account (any role) |
 | PUT    | /api/accounts/me           | Change your own name, body `{"firstName": "...", "lastName": "..."}` |
@@ -580,8 +609,8 @@ summary.
 | GET    | /api/orders                | Your orders, newest first (customer) |
 | GET    | /api/orders/{id}           | One of your orders: status, lines, total, rejection reason; 404 for other customers' orders (customer) |
 | POST   | /api/orders/{id}/cancel    | Cancel a confirmed order: stock back, payment refunded; 409 otherwise (customer) |
-| GET    | /api/orders/all            | All customers' orders, without addresses (staff) |
-| GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
+| GET    | /api/orders/all            | All customers' orders, without addresses; `customer` (username or `(deleted user)`) and `customerId` (staff) |
+| GET    | /api/audit?subjectType=...&subjectId=... | Audit trail with who made each change (`actor` username or `(deleted user)`, and `actorId`), newest first; optionally for one subject, e.g. `BOOK`, `AUTHOR` or `ORDER` with its id (both parameters or neither); each entry has `subject: {type, id}` (admin) |
 | GET    | /actuator/health           | Health status, plus `/liveness` and `/readiness` probes (anyone; components for admins) |
 | GET    | /actuator/info, /actuator/metrics, /actuator/prometheus | Build info, metrics and the Prometheus scrape (admin); see Operations |
 

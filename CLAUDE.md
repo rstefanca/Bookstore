@@ -43,7 +43,10 @@ Dependencies only point one way. Patterns used to keep it that way:
 - **SPI instead of calling back**: `bookcatalog.BookDeletionPolicy` is implemented by inventory/ordering so catalog
   can veto deletes without depending on them. Restock/set-price/rate/checkout lock the book row `FOR KEY SHARE`
   (`BookCatalog.existsAndLockAgainstDeletion`; blocks the delete, not edits of the book); delete takes
-  `FOR UPDATE` before consulting policies (`RestockDeleteRaceTest`).
+  `FOR UPDATE` before consulting policies (`RestockDeleteRaceTest`). `security.AccountDeletionPolicy` works the same
+  way for accounts: ordering/rating/customer/audit implement it (`holdsRecords`, `removePersonalData`,
+  `anonymize`), so `AccountService.delete` hard-deletes an account nobody holds records for and soft-deletes
+  (anonymizes) the rest. Those modules depend on `security`'s public API, never the reverse.
 - **Conditions and orders handed to the catalog**: `bookcatalog.BookCondition` and `BookOrder` (set on a `BookSearch`
   with `matching`/`ordered`) let pricing and rating give the catalog a filter or sort for its own book query, so
   storefront can offer price ranges, `minRating` and `orderBy=rating` with correct paging and totals, and catalog
@@ -68,12 +71,12 @@ republished on restart. Consequently listeners must tolerate **duplicate and out
 Audited events implement `shared.Auditable` (action name, subject id, description, `actor`); `audit.AuditListener`
 has one listener for that interface. The action must be upper snake case (≤ 50 characters) and the subject is
 stored as `LongId.typeName()` + value, so audit depends only on `shared` and needs no change for new actions or
-subjects. The `actor` (username) is captured at publish time via `shared.CurrentUser`, because listeners run with
-no signed-in user.
+subjects. The `actor` (an `AccountId`, never a username) is captured at publish time via `shared.CurrentUser.id()`, because
+listeners run with no signed-in user.
 
 ### Cross-cutting conventions
 
-- **Typed ids**: ids are records (`BookId`, `AuthorId`, `OrderId`, ...) wrapping `long` and implementing `shared.LongId`,
+- **Typed ids**: ids are records (`BookId`, `AuthorId`, `OrderId`, `AccountId` (in `shared`), ...) wrapping `long` and implementing `shared.LongId`,
   persisted with Hibernate `UserType`s extending `shared.LongIdType` (not `AttributeConverter`, which isn't allowed on `@Id`). They
   serialize as plain numbers (`@JsonValue`) and bind from path/query params via a static `of(String)`. A new id
   type needs the record + its `*IdType`.
@@ -84,6 +87,8 @@ no signed-in user.
   table in README.
 - **Security**: all rules live in `security.SecurityConfiguration`; any unlisted path is **denied**, so new
   endpoints must be added there. HTTP Basic, stateless, CSRF off. Roles: `CUSTOMER`, `STAFF`, `ADMIN`.
+  Data is owned by account id, never username: use `CurrentUser.requireId()` (`username()` is for display and
+  logs); the sign-in principal is a `shared.AccountPrincipal`.
 - **Errors**: every error is an RFC 9457 `ProblemDetail` (`application/problem+json`). A new exception gets
   `@ResponseStatus` and a message written for API clients, which becomes `detail` (`shared.ProblemDetailsAdvice`).
   Controller-local `@ExceptionHandler`s return `ProblemDetail`. Anything unhandled, plus 401/403 from the security

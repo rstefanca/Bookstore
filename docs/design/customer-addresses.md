@@ -24,8 +24,8 @@ saved addresses when an account is deleted (carts are left behind the same way).
 
 ## 1. Module `customer`
 
-A new Spring Modulith module `cz.codingmonkey.bookstore.customer`. It depends on `shared` only. `ordering`
-depends on it; it doesn't know orders, and `security` doesn't know it (the link is the username string).
+A new Spring Modulith module `cz.codingmonkey.bookstore.customer`. It depends on `shared` and, since account deletion, `security`'s `AccountDeletionPolicy`. `ordering`
+depends on it; it doesn't know orders, and `security` doesn't know it (the link is the account id).
 
 Public API (module root package):
 
@@ -39,9 +39,9 @@ public record Address(String name, String street, String city, String postalCode
 /** Read access to customers' saved addresses for other modules. */
 public interface CustomerAddresses {
 
-    Optional<Address> shipping(String username);
+    Optional<Address> shipping(AccountId customer);
 
-    Optional<Address> invoice(String username);
+    Optional<Address> invoice(AccountId customer);
 }
 ```
 
@@ -49,13 +49,13 @@ All `Address` fields are required, stripped and length-limited (name, street, ci
 country exactly two letters).
 
 Internal (`customer.internal`): `AddressController`, `AddressService` (implements `CustomerAddresses`),
-`SavedAddresses` (entity, one row per customer, keyed by username like `cart`; shipping and invoice are nullable
+`SavedAddresses` (entity, one row per customer, keyed by the account id like `cart`; shipping and invoice are nullable
 embedded `Address`es), `SavedAddressesRepository`, `SavedAddressesView` (record of both optional addresses returned by `GET`). Both packages get a
 `package-info.java` with `@NullMarked`; the root one also `@ApplicationModule(displayName = "Customers")`.
 
 ## 2. Table
 
-Migration `V27__create_customer_address.sql`: `customer_address(customer PK, shipping_name, shipping_street,
+Migration `V27__create_customer_address.sql`: `customer_address(customer PK (since V31 `customer_id`, the account id), shipping_name, shipping_street,
 shipping_city, shipping_postal_code, shipping_country, invoice_*)`. A `CHECK` per group makes it all-or-nothing, so
 half an address can't be stored.
 
@@ -85,7 +85,8 @@ at checkout applies to that order only and is not saved.
 Migration `V28__add_order_addresses.sql` adds `shipping_*` and `invoice_*` columns to `customer_order`, with the
 same all-or-nothing `CHECK` per group. They are nullable in the schema because existing orders have no addresses;
 the entity requires both for new ones. `CustomerOrder` takes both in its constructor and `OrderView` exposes them
-(`null` for old orders). The order state machine, events, stock, payment and audit flows don't change.
+(`null` for old orders). When the customer's account is soft-deleted, the shipping group of their orders is set to
+NULL (invoice kept); see `docs/design/account-deletion.md`. The order state machine, events, stock, payment and audit flows don't change.
 
 ## 6. Module boundaries
 

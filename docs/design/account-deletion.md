@@ -1,6 +1,6 @@
 # Design: account ids and deleting accounts
 
-Status: proposed (2026-10-18).
+Status: implemented (2026-10-18).
 
 ## Goal
 
@@ -55,18 +55,23 @@ Owner columns change from the username (`customer VARCHAR(100)`, `actor VARCHAR(
 
 Migration `V29__add_account_deleted_at.sql`: `ALTER TABLE account ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE`.
 
-Migration `V30__identify_accounts_by_id.sql` converts existing rows, matching usernames to accounts
-case-insensitively (usernames are unique that way):
+The conversion of existing rows is split by owner, so each step leaves a working build: `V30` ratings, `V31`
+addresses, `V32` carts and orders, `V33` audit entries, and `V34` adds indexes on `audit_entry(actor_id)` and
+`book_rating(customer_id)`. Each matches usernames to accounts case-insensitively (usernames are unique that way):
 - carts, cart lines and saved addresses whose username has no account are deleted (personal data of users who are
   gone);
 - for every username in `customer_order`, `book_rating` or `audit_entry` that has no account, a placeholder account
   is inserted (role `CUSTOMER`, an unusable password hash, `deleted_at` set, username `~deleted-<its id>`), so no
-  order, rating or audit entry is lost;
+  order, rating or audit entry is lost. Every migration creates its own placeholders, so the same long-gone
+  username can have a different placeholder per module (`~deleted-<id>` each time); where a migration has to
+  rename accounts or move keys it uses temporary names `'~tmp-' || md5(name)` (V30 fixed to do so, V32, V33);
+- case-variant duplicates are collapsed: one rating per book (the newer), and one cart line per book without
+  summing quantities;
 - the new `*_id` columns are filled from `account.id`, the old columns are dropped, and keys and indexes are
   recreated.
 
-`AccountIdMigrationTest` (like `AuthorMigrationTest`) checks each of these on real rows, including a differently
-cased username and an audit entry without an actor.
+Migration tests (like `AuthorMigrationTest`) check each of these on real rows, including a differently cased
+username and an audit entry without an actor.
 
 Deployment note: events in the `event_publication` outbox that were stored with usernames can't be read after the
 upgrade, so the application must be stopped gracefully with no incomplete publications before upgrading. The README
@@ -121,7 +126,9 @@ logs no more personal data than it does today.
 | `audit` | an entry has this account as `actor_id` | nothing | nothing (entries keep their `actor_id`) |
 
 The all-or-nothing check on `customer_order` (V28) already allows a whole group to be NULL, so no schema change is
-needed there. `OrderView.shipping` is `null` for scrubbed orders, as for orders from before addresses.
+needed there. The scrub is a query that does not bump `version`, and `CustomerOrder` is `@DynamicUpdate` (only
+changed columns are written), so an order step racing the scrub neither undoes it nor fails. A version bump was
+rejected because `OrderProcess` has no optimistic-lock retry. `OrderView.shipping` is `null` for scrubbed orders, as for orders from before addresses.
 
 `OrderView` gains `customerId`; its `customer` is resolved with `Accounts.usernamesOf` (one batched call per page, so
 the staff list costs one extra query). The audit entry response does the same for `actor` and gains `actorId`.
@@ -146,7 +153,7 @@ deployment note, module dependency diagram), `CLAUDE.md` (typed ids, `CurrentUse
 
 ## 7. Testing
 
-- **Migration:** `AccountIdMigrationTest` as in section 2.
+- **Migration:** `RatingMigrationTest`, `AddressMigrationTest`, `OrderMigrationTest` and `AuditActorMigrationTest` as in section 2.
 - **Per module** (`@ApplicationModuleTest`): `holdsRecords`, `removePersonalData` and `anonymize` of each policy
   against real tables (orders keep invoice and lose shipping; ratings keep their stars; audit entries keep their
   actor). The existing module and unit tests that pass username strings as the customer (carts, orders, ratings,

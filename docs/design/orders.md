@@ -26,7 +26,7 @@ the two modules would depend on each other, which Modulith rejects.)
 
 ## Cart (`ordering`)
 
-- Table `cart_item` (customer username, book id, quantity, added at); one cart per customer.
+- Table `cart_item` (customer account id, book id, quantity, added at); one cart per customer.
 - `GET /api/cart`: items with current title and price, line totals, cart total. Books no longer for sale
   are shown with `price: null`.
 - `PUT /api/cart/items/{bookId}` `{quantity}` (1–20; 0 removes), `DELETE /api/cart/items/{bookId}`,
@@ -42,7 +42,7 @@ the two modules would depend on each other, which Modulith rejects.)
 
 ## Orders (`ordering`)
 
-Tables `customer_order` (id, customer, status, total amount + currency, reason, created at, version; since V28 also the `shipping_*` and `invoice_*` groups
+Tables `customer_order` (id, customer id (the owner's `AccountId`, not the username), status, total amount + currency, reason, created at, version; since V28 also the `shipping_*` and `invoice_*` groups
 (name, street, city, postal code, country), nullable and all-or-nothing per group, null for orders placed earlier) and
 `order_line` (order id, book id, title, quantity, unit price).
 
@@ -75,7 +75,7 @@ commit, tracked in the event registry, retried after a restart):
    the cart, publish `StockReleaseRequested` (undo step 2).
 6. Cancel: order → `CANCELLED`, publish `StockReleaseRequested` and `RefundRequested`.
 
-Every event that the order process publishes also carries the customer as `actor`, so stock changes in the
+Every event that the order process publishes also carries the customer's `AccountId` as `actor`, so stock changes in the
 audit log show who caused them.
 
 **Safe under retries and duplicates.** Events can arrive twice (retries) or late. Each handler checks the
@@ -104,7 +104,11 @@ update that doesn't touch the version) and reports the undo step only the first 
 ## Security
 
 `/api/cart/**`, `/api/orders`, `/api/orders/{id}`, `/api/orders/{id}/cancel` → role `CUSTOMER`.
-`/api/orders/all` → `STAFF` (and admins). The customer is the signed-in username (`shared.CurrentUser`).
+`/api/orders/all` → `STAFF` (and admins). The customer is the signed-in account id (`shared.CurrentUser.requireId()`).
+
+When a customer's account is deleted and orders exist, the account is soft-deleted: the orders stay (shown with
+`customer` `(deleted user)` and their `customerId`), the invoice address is kept and the shipping address is
+scrubbed to NULL; the cart is deleted (`docs/design/account-deletion.md`).
 
 ## Database
 
