@@ -75,8 +75,8 @@ usernames and can't be read afterwards. Stop the application gracefully with no 
 upgrading.
 
 Audited events implement `shared.Auditable` and describe themselves: the audit action name, the subject (any
-`shared.LongId`) and the description text. The audit module has a single listener for `Auditable` and depends only on
-`shared`. The action is stored as given (upper snake case, at most 50 characters), and the subject as
+`shared.LongId`) and the description text. The audit module has a single listener for `Auditable` and depends on
+`shared` and `security`'s public account API. The action is stored as given (upper snake case, at most 50 characters), and the subject as
 `LongId.typeName()` plus the id value (`subject_type`, `subject_id`), so a new audited event or subject type needs no
 change in the audit module. An event that sets its own `occurredAt` and is delivered again is skipped when an entry
 with the same subject, action and `occurredAt` exists.
@@ -474,7 +474,7 @@ variables and query parameters return 400. `AuditEntryId` and `PricePeriodId` ar
 database-generated keys and don't check.
 
 Dependencies only go one way: inventory depends on book. Audit receives every event that implements
-`shared.Auditable` and depends only on `shared`, so it doesn't depend on the modules that publish them.
+`shared.Auditable` and depends on `shared` and `security`'s public account API (not on the modules that publish them).
 
     inventory ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (restock checks the book exists)
     inventory ──implements BookDeletionPolicy─────────────▶ book   (vetoes deleting books in stock)

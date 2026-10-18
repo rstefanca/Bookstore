@@ -70,7 +70,7 @@ republished on restart. Consequently listeners must tolerate **duplicate and out
 
 Audited events implement `shared.Auditable` (action name, subject id, description, `actor`); `audit.AuditListener`
 has one listener for that interface. The action must be upper snake case (≤ 50 characters) and the subject is
-stored as `LongId.typeName()` + value, so audit depends only on `shared` and needs no change for new actions or
+stored as `LongId.typeName()` + value, so audit depends on `shared` and `security`'s public account API and needs no change for new actions or
 subjects. The `actor` (an `AccountId`, never a username) is captured at publish time via `shared.CurrentUser.id()`, because
 listeners run with no signed-in user.
 

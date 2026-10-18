@@ -10,7 +10,7 @@ lists every domain action in `AuditEntry.Action`. Instead:
 
 - an entry stores its subject as any `shared.LongId`, kept as a type name plus the id value, so a new kind of
   subject needs no column, no migration and no API change;
-- the audit module depends **only on `shared`**: no imports of other modules, no domain action names, no
+- the audit module depends **only on `shared`** (since account deletion also on `security`'s public API, which is unrelated to audit actions): no imports of other modules, no domain action names, no
   order-specific rules.
 
 Agreed with the user:

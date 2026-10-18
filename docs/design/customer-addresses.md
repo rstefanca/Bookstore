@@ -19,8 +19,8 @@ Agreed with the user:
   later edits of the saved addresses never change existing orders.
 - Only `CUSTOMER` accounts use the endpoints. Staff and admins never see or hold address data.
 
-Not included: an address book with several addresses, validating that a postal code matches a country, cleaning up
-saved addresses when an account is deleted (carts are left behind the same way).
+Not included: an address book with several addresses, validating that a postal code matches a country.
+Saved addresses are deleted with the account (`docs/design/account-deletion.md`).
 
 ## 1. Module `customer`
 
