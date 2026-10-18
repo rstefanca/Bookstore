@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

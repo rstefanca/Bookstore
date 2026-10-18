@@ -1,4 +1,4 @@
-package cz.codingmonkey.bookstore.security;
+package cz.codingmonkey.bookstore.shared;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import cz.codingmonkey.bookstore.shared.LongId;

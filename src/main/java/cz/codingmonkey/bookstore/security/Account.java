@@ -1,5 +1,7 @@
 package cz.codingmonkey.bookstore.security;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountIdType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

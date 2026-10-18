@@ -1,8 +1,8 @@
-package cz.codingmonkey.bookstore.security;
+package cz.codingmonkey.bookstore.shared;
 
 import cz.codingmonkey.bookstore.shared.LongIdType;
 
-class AccountIdType extends LongIdType<AccountId> {
+public class AccountIdType extends LongIdType<AccountId> {
 
     AccountIdType() {
         super(AccountId.class, AccountId::new);

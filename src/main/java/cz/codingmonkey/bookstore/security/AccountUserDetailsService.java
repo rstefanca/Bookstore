@@ -1,6 +1,6 @@
 package cz.codingmonkey.bookstore.security;
 
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,10 +21,8 @@ class AccountUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) {
         return accounts.findByUsernameIgnoreCase(username)
-                .map(account -> User.withUsername(account.getUsername())
-                        .password(account.getPasswordHash())
-                        .roles(account.getRole().name())
-                        .build())
+                .map(account -> new AccountUser(account.getId(), account.getUsername(), account.getPasswordHash(),
+                        AuthorityUtils.createAuthorityList("ROLE_" + account.getRole().name())))
                 .orElseThrow(() -> new UsernameNotFoundException(username));
     }
 }

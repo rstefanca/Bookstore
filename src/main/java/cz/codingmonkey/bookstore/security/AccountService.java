@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.security;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;

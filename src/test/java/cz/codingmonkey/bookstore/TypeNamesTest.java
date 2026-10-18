@@ -8,7 +8,7 @@ import cz.codingmonkey.bookstore.bookcatalog.GenreId;
 import cz.codingmonkey.bookstore.inventory.ReservationId;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.payment.PaymentReference;
-import cz.codingmonkey.bookstore.security.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import org.junit.jupiter.api.Test;
 
 /** typeName() is stored in the audit log: renaming an id class changes stored audit data. */

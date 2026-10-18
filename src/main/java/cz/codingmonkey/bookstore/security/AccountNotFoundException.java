@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.security;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 

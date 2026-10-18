@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.security;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;

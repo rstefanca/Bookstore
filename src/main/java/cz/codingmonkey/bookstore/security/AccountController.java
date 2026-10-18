@@ -5,6 +5,7 @@ import cz.codingmonkey.bookstore.security.AccountRequests.NewAccount;
 import cz.codingmonkey.bookstore.security.AccountRequests.NewPassword;
 import cz.codingmonkey.bookstore.security.AccountRequests.PasswordChange;
 import cz.codingmonkey.bookstore.security.AccountRequests.Registration;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
