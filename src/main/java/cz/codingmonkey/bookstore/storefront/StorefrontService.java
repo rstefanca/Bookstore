@@ -11,7 +11,7 @@ import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import cz.codingmonkey.bookstore.recommendation.Recommendation;
 import cz.codingmonkey.bookstore.recommendation.Recommendations;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
 import org.springframework.data.domain.Page;

@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@Tag(name = "Recommendations")
+@Tag(name = "Recommendations", description = """
+        Personal picks for customers (`CUSTOMER`): books similar to the ones they rated 4 or 5 stars. Similar books \
+        for a given book are under Books.""")
 class PersonalPicksController {
 
     private final PersonalPicksService picks;
