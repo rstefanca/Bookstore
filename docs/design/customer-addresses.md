@@ -50,7 +50,7 @@ country exactly two letters).
 
 Internal (`customer.internal`): `AddressController`, `AddressService` (implements `CustomerAddresses`),
 `SavedAddresses` (entity, one row per customer, keyed by username like `cart`; shipping and invoice are nullable
-embedded `Address`es), `SavedAddressesRepository`, `InvalidAddressException`. Both packages get a
+embedded `Address`es), `SavedAddressesRepository`, `SavedAddressesView` (record of both optional addresses returned by `GET`). Both packages get a
 `package-info.java` with `@NullMarked`; the root one also `@ApplicationModule(displayName = "Customers")`.
 
 ## 2. Table

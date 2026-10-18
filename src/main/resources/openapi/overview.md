@@ -37,10 +37,13 @@ Wrong credentials get `401` even on public endpoints. A signed-in account withou
 ## Buying books
 
 1. Put books in the cart with `PUT /api/cart/items/{bookId}` (only books with a price are for sale).
-2. `POST /api/cart/checkout` fixes titles and prices, empties the cart and answers `202` with the `PENDING` order.
-3. Stock is reserved and the payment charged in the background. Poll `GET /api/orders/{id}` until the order is
+2. Save a shipping and an invoice address with `PUT /api/me/addresses/shipping` and `/invoice` (or send `shipping`
+   and `invoice` in the checkout body, which overrides the saved ones for that order only).
+3. `POST /api/cart/checkout` fixes titles and prices, empties the cart and answers `202` with the `PENDING` order.
+   It answers `400` when either address is missing.
+4. Stock is reserved and the payment charged in the background. Poll `GET /api/orders/{id}` until the order is
    `CONFIRMED` or `REJECTED` (out of stock, or payment declined; `reason` says which).
-4. A confirmed order can be cancelled (`POST /api/orders/{id}/cancel`): the stock goes back and the payment is
+5. A confirmed order can be cancelled (`POST /api/orders/{id}/cancel`): the stock goes back and the payment is
    refunded.
 
 The payment provider is simulated: by default it declines orders above 100 EUR, so the failure path is easy to try.

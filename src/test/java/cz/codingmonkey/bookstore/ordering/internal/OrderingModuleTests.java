@@ -389,6 +389,17 @@ class OrderingModuleTests {
     }
 
     @Test
+    void shippingOnlyRequestOverridesSavedShipping() {
+        carts.setQuantity(customer, DUNE, 1);
+        Address other = new Address("Other", "Side 2", "Plzen", "301 00", "CZ");
+
+        OrderView order = carts.checkout(customer, new CheckoutRequest(other, null));
+
+        assertThat(order.shipping()).isEqualTo(other);
+        assertThat(order.invoice()).isEqualTo(TestAddresses.INVOICE);
+    }
+
+    @Test
     void missingShippingIsRefusedAndNothingIsReserved(PublishedEvents events) {
         carts.setQuantity(customer, DUNE, 1);
         given(addresses.shipping(customer)).willReturn(Optional.empty());

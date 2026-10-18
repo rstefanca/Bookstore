@@ -33,7 +33,7 @@ in the `account` table with BCrypt password hashes. Customers are accounts too: 
 | Anyone | Browse books, authors, genres, prices and similar books; use the read-only MCP tools; check health; read the OpenAPI spec |
 | `STAFF` | Also create, change and delete books, authors and genres; manage prices and inventory; read price history |
 | `ADMIN` | Everything staff may, plus read the audit log, manage accounts and use the other actuator endpoints |
-| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, rate books, get personal picks; signs up with `POST /api/accounts/register` |
+| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, manage their saved shipping and invoice addresses, rate books, get personal picks; signs up with `POST /api/accounts/register` |
 
 All rules are in `security.SecurityConfiguration`, and any path without a rule is denied, so new endpoints are
 closed until they're added there. Wrong credentials get 401 even on public endpoints; a signed-in account without
@@ -282,7 +282,9 @@ by username, apart from `Account`.
 
 `POST /api/cart/checkout` takes an optional body `{"shipping": {...}, "invoice": {...}}`. For each address the one in
 the request wins, otherwise the saved one is used; if either is still missing the answer is 400 ("Shipping address is
-required: send one or save one"). The check comes after the empty-cart 409 and before any stock is touched. An address
+required: send one or save one"). Send the body with `Content-Type: application/json` (an empty body with another
+content type, e.g. curl's default `-d ''` form type, is answered 415); no body and no Content-Type at all still works.
+The check comes after the empty-cart 409 and before any stock is touched. An address
 sent at checkout applies to that order only and is not saved. The order stores a copy of both; `GET /api/orders/all`
 (staff) lists orders without addresses. Changes are logged with the customer and address type, not the address.
 Design: `docs/design/customer-addresses.md`.

@@ -42,7 +42,8 @@ the two modules would depend on each other, which Modulith rejects.)
 
 ## Orders (`ordering`)
 
-Tables `customer_order` (id, customer, status, total amount + currency, reason, created at, version) and
+Tables `customer_order` (id, customer, status, total amount + currency, reason, created at, version; since V28 also the `shipping_*` and `invoice_*` groups
+(name, street, city, postal code, country), nullable and all-or-nothing per group, null for orders placed earlier) and
 `order_line` (order id, book id, title, quantity, unit price).
 
 States:
