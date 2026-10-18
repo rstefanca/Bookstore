@@ -1,11 +1,13 @@
 package cz.codingmonkey.bookstore.wishlist.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
+import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +58,15 @@ class WishlistService {
     void remove(AccountId account, BookId book) {
         if (items.delete(account, book) > 0) {
             changes.info("Account {} removed book {} from the wishlist", account, book);
+        }
+    }
+
+    /** A deleted book leaves every wishlist. */
+    @ApplicationModuleListener
+    void on(BookDeletedEvent event) {
+        int removed = items.deleteAll(event.bookId());
+        if (removed > 0) {
+            changes.info("Removed {} wishlist entries of deleted book {}", removed, event.bookId());
         }
     }
 }

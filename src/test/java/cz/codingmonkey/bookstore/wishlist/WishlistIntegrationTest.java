@@ -121,6 +121,18 @@ class WishlistIntegrationTest {
     }
 
     @Test
+    void deletingACustomerRemovesTheirWishlist() {
+        put(customer, book).expectStatus().isNoContent();
+
+        staff.delete().uri("/api/accounts/{id}", accountId).exchange().expectStatus().isNoContent();
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM wishlist_item WHERE account_id = ?", Integer.class,
+                accountId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM account WHERE id = ?", Integer.class, accountId))
+                .isZero();
+    }
+
+    @Test
     void anonymousIs401() {
         RestTestClient anonymous = RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
 
