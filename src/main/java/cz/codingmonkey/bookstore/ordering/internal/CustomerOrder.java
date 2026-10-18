@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.EmbeddedColumnNaming;
 import org.hibernate.annotations.Type;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +36,7 @@ import org.jspecify.annotations.Nullable;
  * released, payment refunded) don't change the state; flags record that they were seen.
  */
 @Entity
+@DynamicUpdate
 @Table(name = "customer_order")
 class CustomerOrder {
 
@@ -70,7 +72,11 @@ class CustomerOrder {
     @Column(nullable = false)
     private Instant createdAt;
 
-    /** Copied at checkout; {@code null} for orders placed before addresses existed. */
+    /**
+     * Copied at checkout; {@code null} for orders placed before addresses existed. Set to NULL when the customer's
+     * account is deleted, only through {@link OrderRepository}, without a version check; {@code @DynamicUpdate}
+     * keeps an order step from writing it back.
+     */
     @Embedded
     @EmbeddedColumnNaming("shipping_%s")
     private @Nullable Address shipping;

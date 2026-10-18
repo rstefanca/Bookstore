@@ -35,7 +35,7 @@ class OrderingAccountDeletion implements AccountDeletionPolicy {
         changes.info("Removed the cart of account {}", account);
     }
 
-    /** Scrubs with an update that bumps the order version: an order step that read the order earlier then fails. */
+    /** A plain column update: order steps write only their own columns ({@code @DynamicUpdate}), so none undoes it. */
     @Override
     @Transactional
     public void anonymize(AccountId account) {

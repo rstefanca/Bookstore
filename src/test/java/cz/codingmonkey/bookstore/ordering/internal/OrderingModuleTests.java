@@ -204,7 +204,7 @@ class OrderingModuleTests {
         assertThat(scrubbed.getShipping()).isNull();
         assertThat(scrubbed.getInvoice()).isEqualTo(TestAddresses.INVOICE);
         assertThat(jdbc.queryForObject("SELECT version FROM customer_order WHERE id = ?", Long.class,
-                mine.getId().value())).isGreaterThan(versionBefore);
+                mine.getId().value())).isEqualTo(versionBefore);
         assertThat(orderRepository.findById(theirs.getId()).orElseThrow().getShipping())
                 .isEqualTo(TestAddresses.SHIPPING);
     }

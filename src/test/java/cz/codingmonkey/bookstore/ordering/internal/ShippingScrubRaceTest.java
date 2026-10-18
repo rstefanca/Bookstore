@@ -19,13 +19,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Checks that scrubbing the shipping address of a deleted account is not undone by an order step that read the
- * order before the scrub: the scrub bumps the order's version, so the stale step fails its version check.
+ * order before the scrub, and that the step still succeeds. The step is simulated (a transaction that changes the
+ * state like {@code OrderProcess} does) because the real handler runs asynchronously and can't be paused between
+ * its read and its write.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -44,7 +45,7 @@ class ShippingScrubRaceTest {
     JdbcTemplate jdbc;
 
     @Test
-    void aStaleOrderStepFailsInsteadOfWritingTheShippingAddressBack() throws Exception {
+    void aStaleOrderStepSucceedsWithoutWritingTheShippingAddressBack() throws Exception {
         AccountId customer = TestAccountIds.next();
         long order = awaitingPayment(customer);
         CountDownLatch stepHasReadTheOrder = new CountDownLatch(1);
@@ -61,11 +62,10 @@ class ShippingScrubRaceTest {
         deletion.anonymize(customer);
         scrubbed.countDown();
 
-        assertThat(step).failsWithin(10, TimeUnit.SECONDS).withThrowableThat()
-                .havingCause().isInstanceOf(ObjectOptimisticLockingFailureException.class);
+        assertThat(step).succeedsWithin(10, TimeUnit.SECONDS);
         assertShippingScrubbedInvoiceKept(order);
         assertThat(jdbc.queryForObject("SELECT status FROM customer_order WHERE id = ?", String.class, order))
-                .as("the stale step did not apply").isEqualTo("AWAITING_PAYMENT");
+                .as("the stale step still applied").isEqualTo("CONFIRMED");
     }
 
     @Test

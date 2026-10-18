@@ -23,9 +23,9 @@ interface OrderRepository extends JpaRepository<CustomerOrder, OrderId> {
     boolean existsByCustomer(AccountId customer);
 
     /**
-     * Sets the shipping address group of the customer's orders to NULL (the invoice stays). Bumps {@code version}
-     * too, so an order step that read the order before the scrub fails its version check instead of writing the
-     * address back.
+     * Sets the shipping address group of the customer's orders to NULL (the invoice stays). Doesn't touch
+     * {@code version}: {@link CustomerOrder} is {@code @DynamicUpdate}, so an order step that read the order earlier
+     * writes only the columns it changed and neither fails nor writes the address back.
      *
      * @return number of orders scrubbed
      */
@@ -33,7 +33,7 @@ interface OrderRepository extends JpaRepository<CustomerOrder, OrderId> {
     @Query(value = """
             UPDATE customer_order
                SET shipping_name = NULL, shipping_street = NULL, shipping_city = NULL,
-                   shipping_postal_code = NULL, shipping_country = NULL, version = version + 1
+                   shipping_postal_code = NULL, shipping_country = NULL
              WHERE customer_id = :customer AND shipping_name IS NOT NULL
             """, nativeQuery = true)
     int scrubShipping(@Param("customer") long customer);
