@@ -84,6 +84,22 @@ class RatingMigrationTest {
     }
 
     @Test
+    void veryLongGoneUsernameDoesNotOverflow() {
+        JdbcTemplate jdbc = migratedTo29();
+        String longName = "u".repeat(100);
+        insertRating(jdbc, 1, longName, 5);
+
+        migrateTo30(jdbc);
+
+        Map<String, Object> account = jdbc.queryForMap("""
+                SELECT a.id, a.username, a.deleted_at IS NOT NULL AS deleted
+                FROM account a JOIN book_rating r ON r.customer_id = a.id
+                """);
+        assertThat(account.get("username")).isEqualTo("~deleted-" + account.get("id"));
+        assertThat(account.get("deleted")).isEqualTo(true);
+    }
+
+    @Test
     void caseVariantDuplicatesCollapseToTheNewerRating() {
         JdbcTemplate jdbc = migratedTo29();
         long bob = insertAccount(jdbc, "bob");
