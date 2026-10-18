@@ -330,7 +330,7 @@ full list is 409, re-adding a listed one is still 204. An unknown book is 404; s
 list. The wishlist module stores account id, book id and time (`wishlist_item`) and checks and locks the book against
 deletion like rating does; `storefront` composes the list view. Deleting a book removes it from every list
 (`BookDeletedEvent`), deleting an account removes its list, and a wishlist alone never makes an account deletion a
-soft one. Two adds at once can take a list one past 200. Design: `docs/design/wishlist.md`.
+soft one. The limit is checked without a lock, so adds sent at the same moment can briefly take a list past 200. Design: `docs/design/wishlist.md`.
 
 ### Pagination
 

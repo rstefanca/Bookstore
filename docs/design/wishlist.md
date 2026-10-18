@@ -60,9 +60,10 @@ no entity), `WishlistService`, `WishlistController`, `WishlistFullException` (40
 
 Behavior:
 - **Add** (in one transaction): lock the book with `BookCatalog.existsAndLockAgainstDeletion` (404 if false), then
-  insert if absent. The count check and insert race when one customer sends two adds at once; both are rare and
-  harmless, so the primary key keeps the entry unique and the limit may be exceeded by one in that race at most.
-  Not worth a lock; documented here on purpose.
+  insert if absent. The count check and insert are not locked, so adds sent at the same moment can take a list past 200 by up to the
+  number of such requests. The primary key still keeps each entry unique. A lock per account
+  (`pg_advisory_xact_lock`) would close it; not done because a client gains nothing from an oversized list and a
+  test could not reproduce the race.
 - **Remove**: delete the row if present.
 - **Book deleted**: `@ApplicationModuleListener` on `BookDeletedEvent` deletes every entry for the book. Duplicate
   delivery is harmless (the delete is idempotent). An add racing the delete is prevented by the `FOR KEY SHARE`

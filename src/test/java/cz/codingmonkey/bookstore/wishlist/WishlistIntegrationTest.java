@@ -197,15 +197,17 @@ class WishlistIntegrationTest {
         other.get().uri("/api/me/wishlist").exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.content.length()").isEqualTo(0);
+        customer.get().uri("/api/me/wishlist").exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.content.length()").isEqualTo(1);
     }
 
     @Test
-    void aDeletedBookIsSkippedBeforeCleanup() {
-        long gone = createBook("Gone");
-        put(customer, gone).expectStatus().isNoContent();
+    void anEntryOfAMissingBookIsSkipped() {
+        // What a deleted book leaves behind until the async cleanup has run.
+        jdbc.update("INSERT INTO wishlist_item (account_id, book_id, added_at) VALUES (?, ?, now() + interval '1 minute')",
+                accountId, 987_654_321L);
         put(customer, book).expectStatus().isNoContent();
-        // The delete publishes an event; its listener may not have run yet when we read.
-        staff.delete().uri("/api/books/{id}", gone).exchange().expectStatus().isNoContent();
 
         customer.get().uri("/api/me/wishlist").exchange()
                 .expectStatus().isOk()
