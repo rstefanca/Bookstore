@@ -107,13 +107,15 @@ class CartService {
     @Transactional
     OrderView checkout(String customer, CheckoutRequest request) {
         Cart cart = carts.findById(customer).filter(c -> !c.isEmpty()).orElseThrow(EmptyCartException::new);
-        Address shipping = request.shipping() != null ? request.shipping()
+
+        Address shippingAddress = request.shipping() != null ? request.shipping()
                 : addresses.shipping(customer).orElse(null);
-        Address invoice = request.invoice() != null ? request.invoice()
+        Address invoiceAddress = request.invoice() != null ? request.invoice()
                 : addresses.invoice(customer).orElse(null);
-        if (shipping == null || invoice == null) {
-            throw new MissingAddressException(shipping == null, invoice == null);
+        if (shippingAddress == null || invoiceAddress == null) {
+            throw new MissingAddressException(shippingAddress == null, invoiceAddress == null);
         }
+
         int cartSize = cart.countLines();
         List<CartLine> cartLines = cart.getLines();
         Map<BookId, Money> currentPrices = getCurrentPrices(cartLines);
@@ -122,11 +124,8 @@ class CartService {
         List<String> notForSale = new ArrayList<>(cartSize);
         Currency currency = null;
         for (CartLine line : cartLines) {
-            // Locked until the order is committed, so the book can't be deleted while it is being ordered.
-            Optional<BookDetails> book = catalog.existsAndLockAgainstDeletion(line.getBookId())
-                    ? catalog.findBook(line.getBookId())
-                    : Optional.empty();
-            
+            Optional<BookDetails> book = getBookDetails(line);
+
             Money price = currentPrices.get(line.getBookId());
             if (book.isEmpty() || price == null) {
                 notForSale.add(book.map(BookDetails::title).orElse("book " + line.getBookId()));
@@ -143,12 +142,19 @@ class CartService {
         
         checkStock(lines);
 
-        CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency, shipping, invoice));
+        CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency, shippingAddress, invoiceAddress));
         cart.clear();
 
         reserveStockAndPlaceOrder(customer, order, lines);
 
         return OrderView.from(order);
+    }
+
+    private Optional<BookDetails> getBookDetails(CartLine line) {
+        // Locked until the order is committed, so the book can't be deleted while it is being ordered.
+        return catalog.existsAndLockAgainstDeletion(line.getBookId())
+                ? catalog.findBook(line.getBookId())
+                : Optional.empty();
     }
 
     private Map<BookId, Money> getCurrentPrices(List<CartLine> cartLines) {
