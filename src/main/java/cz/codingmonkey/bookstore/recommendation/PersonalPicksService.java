@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.recommendation;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.pricing.Prices;
 import cz.codingmonkey.bookstore.rating.Ratings;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,9 +34,9 @@ class PersonalPicksService {
     /**
      * Up to {@code limit} books for the customer, best first.
      *
-     * @param customer the customer's username
+     * @param customer the customer's account
      */
-    PersonalPicks picksFor(String customer, int limit) {
+    PersonalPicks picksFor(AccountId customer, int limit) {
         Map<BookId, Integer> stars = ratings.ratingsBy(customer);
         Set<BookId> excluded = stars.keySet();
         List<BookId> liked = stars.entrySet().stream()

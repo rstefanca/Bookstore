@@ -8,6 +8,7 @@ import cz.codingmonkey.bookstore.bookcatalog.BookOrder;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
 import cz.codingmonkey.bookstore.rating.Ratings;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -61,7 +62,7 @@ class RatingService implements Ratings {
     }
 
     @Override
-    public Map<BookId, Integer> ratingsBy(String customer) {
+    public Map<BookId, Integer> ratingsBy(AccountId customer) {
         return ratings.starsBy(customer);
     }
 
@@ -77,17 +78,17 @@ class RatingService implements Ratings {
      * @throws UnknownBookException if there is no such book
      */
     @Transactional
-    Rating rate(BookId bookId, String customer, int stars) {
+    Rating rate(BookId bookId, AccountId customer, int stars) {
         if (!books.existsAndLockAgainstDeletion(bookId)) {
             throw new UnknownBookException(bookId);
         }
         // The column has microsecond precision; return what is stored.
         Rating rating = ratings.save(bookId, customer, stars, Instant.now().truncatedTo(ChronoUnit.MICROS));
-        changes.info("Customer {} rated book {} with {} stars", customer, bookId, stars);
+        changes.info("Account {} rated book {} with {} stars", customer, bookId, stars);
         return rating;
     }
 
-    Optional<Rating> find(BookId bookId, String customer) {
+    Optional<Rating> find(BookId bookId, AccountId customer) {
         return ratings.find(bookId, customer);
     }
 

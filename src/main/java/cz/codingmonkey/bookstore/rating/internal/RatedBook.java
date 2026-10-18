@@ -2,6 +2,8 @@ package cz.codingmonkey.bookstore.rating.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookIdType;
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountIdType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -26,7 +28,9 @@ class RatedBook implements Serializable {
     private BookId bookId;
 
     @Id
-    private String customer;
+    @Column(name = "customer_id")
+    @Type(AccountIdType.class)
+    private AccountId customerId;
 
     /** The column is {@code SMALLINT}. */
     private short stars;
@@ -38,11 +42,11 @@ class RatedBook implements Serializable {
     @Override
     public boolean equals(Object other) {
         return other instanceof RatedBook that && Objects.equals(bookId, that.bookId)
-                && Objects.equals(customer, that.customer);
+                && Objects.equals(customerId, that.customerId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(bookId, customer);
+        return Objects.hash(bookId, customerId);
     }
 }

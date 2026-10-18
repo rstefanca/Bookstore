@@ -219,8 +219,8 @@ class RatingSortIntegrationTest {
     /** One rating per given star value, by customers c1, c2, ... in turn. */
     private void rate(BookId book, int... stars) {
         for (int i = 0; i < stars.length; i++) {
-            jdbc.update("INSERT INTO book_rating (book_id, customer, stars, rated_at) VALUES (?, ?, ?, ?)",
-                    book.value(), "c" + (i + 1), stars[i], OffsetDateTime.now());
+            jdbc.update("INSERT INTO book_rating (book_id, customer_id, stars, rated_at) VALUES (?, ?, ?, ?)",
+                    book.value(), i + 1L, stars[i], OffsetDateTime.now());
         }
     }
 }

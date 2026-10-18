@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.rating.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
@@ -98,12 +99,12 @@ class RatingRankingIntegrationTest {
     void ratingsByReturnsTheCustomersStars() {
         BookId x = createBook("X");
         BookId y = createBook("Y");
-        insertRating(x, "c1", 5);
-        insertRating(y, "c1", 2);
-        insertRating(x, "c2", 3);
+        insertRating(x, new AccountId(1), 5);
+        insertRating(y, new AccountId(1), 2);
+        insertRating(x, new AccountId(2), 3);
 
-        assertThat(ratings.ratingsBy("c1")).isEqualTo(Map.of(x, 5, y, 2));
-        assertThat(ratings.ratingsBy("unknown")).isEmpty();
+        assertThat(ratings.ratingsBy(new AccountId(1))).isEqualTo(Map.of(x, 5, y, 2));
+        assertThat(ratings.ratingsBy(new AccountId(999))).isEmpty();
     }
 
     @Test
@@ -153,7 +154,7 @@ class RatingRankingIntegrationTest {
     /** One rating per given star value, by customers c1, c2, ... in turn. */
     private void rate(BookId book, int... stars) {
         for (int i = 0; i < stars.length; i++) {
-            insertRating(book, "c" + (i + 1), stars[i]);
+            insertRating(book, new AccountId(i + 1), stars[i]);
         }
     }
 
@@ -169,8 +170,8 @@ class RatingRankingIntegrationTest {
         return all;
     }
 
-    private void insertRating(BookId book, String customer, int stars) {
-        jdbc.update("INSERT INTO book_rating (book_id, customer, stars, rated_at) VALUES (?, ?, ?, ?)",
-                book.value(), customer, stars, OffsetDateTime.now());
+    private void insertRating(BookId book, AccountId customer, int stars) {
+        jdbc.update("INSERT INTO book_rating (book_id, customer_id, stars, rated_at) VALUES (?, ?, ?, ?)",
+                book.value(), customer.value(), stars, OffsetDateTime.now());
     }
 }

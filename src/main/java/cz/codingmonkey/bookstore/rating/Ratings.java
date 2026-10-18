@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.rating;
 import cz.codingmonkey.bookstore.bookcatalog.BookCondition;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.BookOrder;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
@@ -35,7 +36,7 @@ public interface Ratings {
     BookOrder byRating();
 
     /** The customer's stars per book; empty if they rated nothing. */
-    Map<BookId, Integer> ratingsBy(String customer);
+    Map<BookId, Integer> ratingsBy(AccountId customer);
 
     /**
      * Rated books by rank score (as {@link #byRating()}), best first, ties by book id; a window of {@code count}

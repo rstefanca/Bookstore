@@ -3,7 +3,9 @@ package cz.codingmonkey.bookstore.recommendation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.internal.AuthorRequest;
@@ -32,7 +34,9 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @Import(TestcontainersConfiguration.class)
 class PersonalPicksServiceIntegrationTest {
 
-    static final String CUSTOMER = "picky-customer";
+    static final AccountId CUSTOMER = TestAccountIds.next();
+    static final AccountId OTHER_1 = TestAccountIds.next();
+    static final AccountId OTHER_2 = TestAccountIds.next();
 
     @Autowired
     PersonalPicksService picks;
@@ -140,8 +144,8 @@ class PersonalPicksServiceIntegrationTest {
     void fallsBackToTopRatedWithoutLikes() {
         priceAll();
         rate(cookbook, CUSTOMER, 2);
-        rate(duneMessiah, "other-1", 5);
-        rate(childrenOfDune, "other-2", 4);
+        rate(duneMessiah, OTHER_1, 5);
+        rate(childrenOfDune, OTHER_2, 4);
 
         PersonalPicks result = picks.picksFor(CUSTOMER, 10);
 
@@ -154,7 +158,7 @@ class PersonalPicksServiceIntegrationTest {
     void fallsBackWhenLikedBooksHaveNoEmbedding() {
         priceAll();
         rate(dune, CUSTOMER, 5);
-        rate(childrenOfDune, "other-1", 4);
+        rate(childrenOfDune, OTHER_1, 4);
         jdbc.update("DELETE FROM book_embedding WHERE book_id = ?", dune.value());
 
         PersonalPicks result = picks.picksFor(CUSTOMER, 10);
@@ -167,7 +171,7 @@ class PersonalPicksServiceIntegrationTest {
     void emptyWithoutAnyRatings() {
         priceAll();
 
-        PersonalPicks result = picks.picksFor("fresh-customer", 10);
+        PersonalPicks result = picks.picksFor(TestAccountIds.next(), 10);
 
         assertThat(result.personal()).isFalse();
         assertThat(result.books()).isEmpty();
@@ -190,9 +194,9 @@ class PersonalPicksServiceIntegrationTest {
                 .expectStatus().isOk();
     }
 
-    private void rate(BookId book, String customer, int stars) {
-        jdbc.update("INSERT INTO book_rating (book_id, customer, stars, rated_at) VALUES (?, ?, ?, ?)",
-                book.value(), customer, stars, OffsetDateTime.now());
+    private void rate(BookId book, AccountId customer, int stars) {
+        jdbc.update("INSERT INTO book_rating (book_id, customer_id, stars, rated_at) VALUES (?, ?, ?, ?)",
+                book.value(), customer.value(), stars, OffsetDateTime.now());
     }
 
     private AuthorId createAuthor(String name) {

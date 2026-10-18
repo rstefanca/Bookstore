@@ -1,10 +1,10 @@
 package cz.codingmonkey.bookstore.rating.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.security.Principal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -37,8 +37,8 @@ class RatingController {
     @ApiResponse(responseCode = "200", description = "Your rating of the book")
     @ApiResponse(responseCode = "400", description = "stars is missing or isn't a whole number from 1 to 5")
     @ApiResponse(responseCode = "404", description = "There is no book with this id")
-    RatingResponse rate(@PathVariable BookId id, @Valid @RequestBody RatingRequest request, Principal customer) {
-        return RatingResponse.of(ratings.rate(id, customer.getName(), request.stars()));
+    RatingResponse rate(@PathVariable BookId id, @Valid @RequestBody RatingRequest request) {
+        return RatingResponse.of(ratings.rate(id, CurrentUser.requireId(), request.stars()));
     }
 
     /**
@@ -49,7 +49,7 @@ class RatingController {
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Your rating of the book")
     @ApiResponse(responseCode = "404", description = "You haven't rated this book, or there is no such book")
-    RatingResponse find(@PathVariable BookId id, Principal customer) {
-        return ratings.find(id, customer.getName()).map(RatingResponse::of).orElseThrow(RatingNotFoundException::new);
+    RatingResponse find(@PathVariable BookId id) {
+        return ratings.find(id, CurrentUser.requireId()).map(RatingResponse::of).orElseThrow(RatingNotFoundException::new);
     }
 }

@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.rating.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -25,24 +26,24 @@ class BookRatings {
     }
 
     /** Inserts the customer's rating of the book, or replaces the stars of the existing one. */
-    Rating save(BookId bookId, String customer, int stars, Instant ratedAt) {
+    Rating save(BookId bookId, AccountId customer, int stars, Instant ratedAt) {
         jdbc.sql("""
-                INSERT INTO book_rating (book_id, customer, stars, rated_at) VALUES (?, ?, ?, ?)
-                ON CONFLICT (book_id, customer) DO UPDATE
+                INSERT INTO book_rating (book_id, customer_id, stars, rated_at) VALUES (?, ?, ?, ?)
+                ON CONFLICT (book_id, customer_id) DO UPDATE
                     SET stars = EXCLUDED.stars, rated_at = EXCLUDED.rated_at
                 """)
                 .param(bookId.value())
-                .param(customer)
+                .param(customer.value())
                 .param(stars)
                 .param(OffsetDateTime.ofInstant(ratedAt, ZoneOffset.UTC))
                 .update();
         return new Rating(bookId, stars, ratedAt);
     }
 
-    Optional<Rating> find(BookId bookId, String customer) {
-        return jdbc.sql("SELECT stars, rated_at FROM book_rating WHERE book_id = ? AND customer = ?")
+    Optional<Rating> find(BookId bookId, AccountId customer) {
+        return jdbc.sql("SELECT stars, rated_at FROM book_rating WHERE book_id = ? AND customer_id = ?")
                 .param(bookId.value())
-                .param(customer)
+                .param(customer.value())
                 .query((rs, row) -> new Rating(bookId, rs.getInt("stars"),
                         rs.getObject("rated_at", OffsetDateTime.class).toInstant()))
                 .optional();
@@ -71,10 +72,10 @@ class BookRatings {
     }
 
     /** The customer's stars per book; empty if they rated nothing. */
-    Map<BookId, Integer> starsBy(String customer) {
+    Map<BookId, Integer> starsBy(AccountId customer) {
         Map<BookId, Integer> stars = new HashMap<>();
-        jdbc.sql("SELECT book_id, stars FROM book_rating WHERE customer = ?")
-                .param(customer)
+        jdbc.sql("SELECT book_id, stars FROM book_rating WHERE customer_id = ?")
+                .param(customer.value())
                 .query(rs -> {
                     stars.put(new BookId(rs.getLong("book_id")), rs.getInt("stars"));
                 });

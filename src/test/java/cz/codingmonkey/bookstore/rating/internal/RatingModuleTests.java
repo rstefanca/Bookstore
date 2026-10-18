@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.rating.RatingSummary;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,10 @@ class RatingModuleTests {
     static final BookId DUNE = new BookId(1);
     static final BookId NEUROMANCER = new BookId(2);
 
+    static final AccountId A = TestAccountIds.next();
+    static final AccountId B = TestAccountIds.next();
+    static final AccountId C = TestAccountIds.next();
+
     @MockitoBean
     BookCatalog catalog;
 
@@ -49,9 +55,9 @@ class RatingModuleTests {
 
     @Test
     void summarizesRatings() {
-        service.rate(DUNE, "a", 4);
-        service.rate(DUNE, "b", 4);
-        service.rate(DUNE, "c", 5);
+        service.rate(DUNE, A, 4);
+        service.rate(DUNE, B, 4);
+        service.rate(DUNE, C, 5);
 
         RatingSummary summary = service.summaryOf(DUNE);
 
@@ -73,13 +79,13 @@ class RatingModuleTests {
 
     @Test
     void ratingAgainReplacesTheStars() {
-        service.rate(DUNE, "a", 2);
-        service.rate(DUNE, "a", 5);
+        service.rate(DUNE, A, 2);
+        service.rate(DUNE, A, 5);
 
         RatingSummary summary = service.summaryOf(DUNE);
         assertThat(summary.count()).isEqualTo(1);
         assertThat(summary.average()).isEqualTo(new BigDecimal("5.0"));
-        assertThat(service.find(DUNE, "a")).hasValueSatisfying(rating -> assertThat(rating.stars()).isEqualTo(5));
+        assertThat(service.find(DUNE, A)).hasValueSatisfying(rating -> assertThat(rating.stars()).isEqualTo(5));
     }
 
     @Test
@@ -95,7 +101,7 @@ class RatingModuleTests {
 
     @Test
     void summariesCoverEveryRequestedBook() {
-        service.rate(DUNE, "a", 3);
+        service.rate(DUNE, A, 3);
 
         var summaries = service.summariesOf(List.of(DUNE, NEUROMANCER));
 
@@ -108,15 +114,15 @@ class RatingModuleTests {
     void rejectsUnknownBooks() {
         given(catalog.existsAndLockAgainstDeletion(DUNE)).willReturn(false);
 
-        assertThatThrownBy(() -> service.rate(DUNE, "a", 4)).isInstanceOf(UnknownBookException.class);
+        assertThatThrownBy(() -> service.rate(DUNE, A, 4)).isInstanceOf(UnknownBookException.class);
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM book_rating", Integer.class)).isZero();
     }
 
     @Test
     void bookDeletionRemovesItsRatings(Scenario scenario) {
-        service.rate(DUNE, "a", 4);
-        service.rate(NEUROMANCER, "a", 5);
+        service.rate(DUNE, A, 4);
+        service.rate(NEUROMANCER, A, 5);
         BookDeletedEvent event = new BookDeletedEvent(DUNE, "9780441013593", "staff");
 
         scenario.publish(event)
@@ -128,7 +134,7 @@ class RatingModuleTests {
     private BigDecimal averageOf(int... stars) {
         jdbc.update("DELETE FROM book_rating");
         for (int i = 0; i < stars.length; i++) {
-            service.rate(DUNE, "customer" + i, stars[i]);
+            service.rate(DUNE, new AccountId(1000 + i), stars[i]);
         }
         return service.summaryOf(DUNE).average();
     }

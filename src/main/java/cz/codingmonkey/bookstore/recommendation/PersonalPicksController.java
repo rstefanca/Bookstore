@@ -1,10 +1,10 @@
 package cz.codingmonkey.bookstore.recommendation;
 
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import java.security.Principal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,7 +32,7 @@ class PersonalPicksController {
     @ApiResponse(responseCode = "200", description = "Picked books, best first; fewer than limit, or none, when there "
             + "aren't enough candidates")
     @ApiResponse(responseCode = "400", description = "limit isn't between 1 and 20")
-    PersonalPicks picks(Principal customer, @RequestParam(defaultValue = "10") @Min(1) @Max(20) int limit) {
-        return picks.picksFor(customer.getName(), limit);
+    PersonalPicks picks(@RequestParam(defaultValue = "10") @Min(1) @Max(20) int limit) {
+        return picks.picksFor(CurrentUser.requireId(), limit);
     }
 }
