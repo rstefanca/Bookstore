@@ -34,4 +34,6 @@ public record BookSearch(@Nullable String title, @Nullable String authorName, @N
     public BookSearch ordered(BookOrder order) {
         return new BookSearch(title, authorName, authorId, genreId, condition, order);
     }
+
+    public static final BookSearch EMPTY = new BookSearch(null, null, null, null);
 }

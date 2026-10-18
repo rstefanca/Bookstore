@@ -21,6 +21,7 @@ Requires Java 25 (LTS). If no Java 25 is installed, Gradle downloads Eclipse Tem
 | Recommendations | `cz.codingmonkey.bookstore.recommendation` | `Recommendations`, `Recommendation` | Similar-book suggestions (book ids and similarity) from text embeddings stored with pgvector |
 | Ratings | `cz.codingmonkey.bookstore.rating` | `Ratings`, `RatingSummary` | Customers' 1-5 star ratings of books and per-book summaries (implementation in `rating.internal`) |
 | Customers | `cz.codingmonkey.bookstore.customer` | `Address`, `CustomerAddresses` | Customers' saved shipping and invoice addresses (implementation in `customer.internal`) |
+| Wishlist | `cz.codingmonkey.bookstore.wishlist` | `Wishlist`, `WishlistEntry` | Customers' wishlists of books (implementation in `wishlist.internal`) |
 
 ### Security
 
@@ -33,7 +34,7 @@ in the `account` table with BCrypt password hashes. Customers are accounts too: 
 | Anyone | Browse books, authors, genres, prices and similar books; use the read-only MCP tools; check health; read the OpenAPI spec |
 | `STAFF` | Also create, change and delete books, authors and genres; manage prices and inventory; read price history |
 | `ADMIN` | Everything staff may, plus read the audit log, manage accounts and use the other actuator endpoints |
-| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, manage their saved shipping and invoice addresses, rate books, get personal picks; signs up with `POST /api/accounts/register` |
+| `CUSTOMER` | Browse like anyone, see and change their own account, use a cart and place orders, manage their saved shipping and invoice addresses, keep a wishlist, rate books, get personal picks; signs up with `POST /api/accounts/register` |
 
 All rules are in `security.SecurityConfiguration`, and any path without a rule is denied, so new endpoints are
 closed until they're added there. Wrong credentials get 401 even on public endpoints; a signed-in account without
@@ -54,13 +55,13 @@ The signed-in principal carries the id (`CurrentUser.id()`/`requireId()`; `usern
 Ids are never reused, so a username registered again after a deletion inherits nothing.
 
 Deleting an account (`DELETE /api/accounts/{id}`, 204) is for admins only and works for accounts of any role. What happens depends on whether any module keeps records
-for the account (`security.AccountDeletionPolicy`, implemented by ordering, rating, customer and audit):
+for the account (`security.AccountDeletionPolicy`, implemented by ordering, rating, customer, wishlist and audit):
 - **Hard delete** if nobody does: a customer without orders and ratings, a staff member or admin without audit
-  entries. The account row and the cart and saved addresses are removed.
+  entries. The account row and the cart, saved addresses and wishlist are removed.
 - **Soft delete** otherwise: the account is anonymized (names cleared, password unusable, `deleted_at` set) and
   renamed to the tombstone `~deleted-<id>` (`~` can't be typed in a username). It can't sign in (401), is hidden from
-  `GET /api/accounts`, and doesn't count as an admin. Its orders, ratings and audit entries stay; the cart and saved
-  addresses are deleted; the shipping address of its orders is scrubbed (NULL), the invoice address is kept. The old
+  `GET /api/accounts`, and doesn't count as an admin. Its orders, ratings and audit entries stay; the cart, saved
+  addresses and wishlist are deleted; the shipping address of its orders is scrubbed (NULL), the invoice address is kept. The old
   username is free to register again, and the new account sees none of the old data.
 
 The `customer` field of orders and the `actor` field of audit entries are still username strings, resolved when read
@@ -318,6 +319,19 @@ sent at checkout applies to that order only and is not saved. The order stores a
 (staff) lists orders without addresses. Changes are logged with the customer and address type, not the address.
 Design: `docs/design/customer-addresses.md`.
 
+### Wishlist
+
+Customers (`CUSTOMER`) keep a plain list of books they want to remember: `PUT /api/me/wishlist/{bookId}` adds a
+book (204; adding it again changes nothing and keeps the first `addedAt`), `DELETE` removes it (204, also when it
+isn't on the list) and `GET /api/me/wishlist` lists it, newest added first, as a page of
+`{"book": {...}, "addedAt": ...}`. The book is shown as in the storefront, with its price and rating summary; a
+book without a price stays on the list with `price: null`. A list holds at most 200 books: adding a new one to a
+full list is 409, re-adding a listed one is still 204. An unknown book is 404; staff and admins get 403 and hold no
+list. The wishlist module stores account id, book id and time (`wishlist_item`) and checks and locks the book against
+deletion like rating does; `storefront` composes the list view. Deleting a book removes it from every list
+(`BookDeletedEvent`), deleting an account removes its list, and a wishlist alone never makes an account deletion a
+soft one. The limit is checked without a lock, so adds sent at the same moment can briefly take a list past 200. Design: `docs/design/wishlist.md`.
+
 ### Pagination
 
 List endpoints (`/api/books`, `/api/authors`, `/api/genres`, `/api/inventory`, `/api/prices`,
@@ -489,7 +503,9 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     rating    ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (rating checks the book exists)
     rating    ◀──BookDeletedEvent── book                             (removes the ratings)
     ordering  ──CustomerAddresses──▶ customer   (checkout reads the saved addresses)
-    ordering, rating, customer, audit ──implements AccountDeletionPolicy──▶ security   (clean up or anonymize on account deletion)
+    wishlist  ──BookCatalog.existsAndLockAgainstDeletion──▶ book   (adding checks the book exists)
+    wishlist  ◀──BookDeletedEvent── book                             (removes the entries)
+    ordering, rating, customer, wishlist, audit ──implements AccountDeletionPolicy──▶ security   (clean up or anonymize on account deletion)
     ordering, audit ──Accounts.usernamesOf──▶ security   (usernames shown for customer and actor)
     audit     ◀──Auditable events── book, inventory, pricing, ordering
     recommendation ──Ratings.ratingsBy/topRated──▶ rating   (a customer's likes, and the top-rated fallback)
@@ -498,6 +514,7 @@ Dependencies only go one way: inventory depends on book. Audit receives every ev
     storefront ──Prices.priceOf/pricesOf────────▶ pricing
     storefront ──Ratings.summaryOf/summariesOf/ratedAtLeast/byRating──▶ rating
     storefront ──Recommendations.similarTo──────▶ recommendation
+    storefront ──Wishlist.entriesOf─────────────▶ wishlist
 
 A new book has no stock record. One is created on its first restock, so until then `/api/inventory/{bookId}`
 returns 404. Deleting a book whose stock is above 0 returns 409.
@@ -593,6 +610,9 @@ summary.
 | GET    | /api/books/{id}/price-history | Price periods, newest first (paged); empty if never priced |
 | GET    | /api/prices?bookId=...     | Prices by book id (paged), optionally only for the given books (repeat `bookId`) |
 | GET    | /api/books/{id}/similar?limit=5 | Similar books for sale, most similar first, each with price, rating and `similarity` (cosine, higher is closer); books without a price are left out, so there can be fewer than `limit`; limit 1-20; 404 until the book's embedding exists |
+| GET    | /api/me/wishlist           | Your wishlist, newest added first, with prices and ratings; a book without a price has `price: null` (customer) |
+| PUT    | /api/me/wishlist/{bookId}  | Put a book on your wishlist; 204 also when it is already there, 404 unknown book, 409 when the list has 200 other books (customer) |
+| DELETE | /api/me/wishlist/{bookId}  | Take a book off your wishlist; 204 also when it isn't on it (customer) |
 | GET    | /api/recommendations?limit=10 | Personal picks for the signed-in customer: books similar to those they rated 4-5 stars, leaving out rated books and books not for sale, `personal: true`; without liked books the top-rated books with `personal: false`; limit 1-20 (customer) |
 | GET    | /api/accounts              | Accounts, sorted by username (admin) |
 | POST   | /api/accounts              | Create an account, body `{"username": "...", "firstName": "...", "lastName": "...", "password": "...", "role": "STAFF"}` (admin) |
