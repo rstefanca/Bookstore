@@ -30,7 +30,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Combines catalog details, prices, rating summaries and recommendations. Not transactional itself: each module reads
@@ -70,14 +71,24 @@ class StorefrontService {
      * its own database connection while they overlap.
      */
     StorefrontBook findBook(BookId id) {
-        CompletableFuture<Optional<BookDetails>> book =
-                CompletableFuture.supplyAsync(() -> catalog.findBook(id), queries);
-        CompletableFuture<Optional<Money>> price = CompletableFuture.supplyAsync(() -> prices.priceOf(id), queries);
-        CompletableFuture<RatingSummary> rating =
-                CompletableFuture.supplyAsync(() -> ratings.summaryOf(id), queries);
+        CompletableFuture<Optional<BookDetails>> book = getBookDetailsAsync(id);
+        CompletableFuture<Optional<Money>> price = getPriceAsync(id);
+        CompletableFuture<RatingSummary> rating = getRatingAsync(id);
 
         BookDetails details = join(book).orElseThrow(() -> new BookNotFoundException(id));
         return StorefrontBook.of(details, join(price).orElse(null), join(rating));
+    }
+
+    private CompletableFuture<RatingSummary> getRatingAsync(BookId id) {
+        return CompletableFuture.supplyAsync(() -> ratings.summaryOf(id), queries);
+    }
+
+    private CompletableFuture<Optional<Money>> getPriceAsync(BookId id) {
+        return CompletableFuture.supplyAsync(() -> prices.priceOf(id), queries);
+    }
+
+    private CompletableFuture<Optional<BookDetails>> getBookDetailsAsync(BookId id) {
+        return CompletableFuture.supplyAsync(() -> catalog.findBook(id), queries);
     }
 
     /**
@@ -109,11 +120,8 @@ class StorefrontService {
         Page<BookDetails> books = catalog.findBooks(search, page);
         List<BookId> ids = books.map(BookDetails::id).getContent();
 
-        CompletableFuture<Map<BookId, Money>> bookPrices =
-                CompletableFuture.supplyAsync(() -> prices.pricesOf(ids), queries);
-
-        CompletableFuture<Map<BookId, RatingSummary>> bookRatings =
-                CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+        CompletableFuture<Map<BookId, Money>> bookPrices = getBookPricesAsync(ids);
+        CompletableFuture<Map<BookId, RatingSummary>> bookRatings = getBookRatingsAsync(ids);
 
         Map<BookId, Money> pricesById = join(bookPrices);
         Map<BookId, RatingSummary> ratingsById = join(bookRatings);
@@ -144,19 +152,19 @@ class StorefrontService {
             return List.of();
         }
 
-        List<BookId> ids = forSale.stream().map(Recommendation::bookId).toList();
-        CompletableFuture<Map<BookId, BookDetails>> bookDetails = CompletableFuture.supplyAsync(
-                () -> catalog.findBooks(new BookSearch(null, null, null, null).matching(among(ids)), Pageable.unpaged())
-                        .stream().collect(Collectors.toMap(BookDetails::id, Function.identity())),
-                queries);
-        CompletableFuture<Map<BookId, RatingSummary>> bookRatings =
-                CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+        List<BookId> bookIds = forSale.stream().map(Recommendation::bookId).toList();
+        CompletableFuture<Map<BookId, BookDetails>> bookDetails = retrieveBooksByIdsAsync(bookIds);
+        CompletableFuture<Map<BookId, RatingSummary>> bookRatings = getBookRatingsAsync(bookIds);
         Map<BookId, BookDetails> detailsById = join(bookDetails);
         Map<BookId, RatingSummary> ratingsById = join(bookRatings);
         return forSale.stream()
-                .filter(book -> detailsById.containsKey(book.bookId()))
-                .map(book -> SimilarBook.of(detailsById.get(book.bookId()), pricesById.get(book.bookId()),
-                        ratingsById.getOrDefault(book.bookId(), RatingSummary.NONE), book.similarity()))
+                .filter(recommendation -> detailsById.containsKey(recommendation.bookId()))
+                .map(recommendation -> {
+                    var book = detailsById.get(recommendation.bookId());
+                    var price = pricesById.get(recommendation.bookId());
+                    var rating = ratingsById.getOrDefault(recommendation.bookId(), RatingSummary.NONE);
+                    return SimilarBook.of(book, price, rating, recommendation.similarity());
+                })
                 .toList();
     }
 
@@ -171,26 +179,43 @@ class StorefrontService {
         if (entries.isEmpty()) {
             return new PageImpl<>(List.of(), page, entries.getTotalElements());
         }
-        List<BookId> ids = entries.map(WishlistEntry::bookId).getContent();
-        CompletableFuture<Map<BookId, BookDetails>> bookDetails = CompletableFuture.supplyAsync(
-                () -> catalog.findBooks(new BookSearch(null, null, null, null).matching(among(ids)), Pageable.unpaged())
-                        .stream().collect(Collectors.toMap(BookDetails::id, Function.identity())),
-                queries);
-        CompletableFuture<Map<BookId, Money>> bookPrices =
-                CompletableFuture.supplyAsync(() -> prices.pricesOf(ids), queries);
-        CompletableFuture<Map<BookId, RatingSummary>> bookRatings =
-                CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+
+        List<BookId> bookIds = entries.map(WishlistEntry::bookId).getContent();
+        CompletableFuture<Map<BookId, BookDetails>> bookDetails = retrieveBooksByIdsAsync(bookIds);
+        CompletableFuture<Map<BookId, Money>> bookPrices = getBookPricesAsync(bookIds);
+        CompletableFuture<Map<BookId, RatingSummary>> bookRatings = getBookRatingsAsync(bookIds);
         Map<BookId, BookDetails> detailsById = join(bookDetails);
         Map<BookId, Money> pricesById = join(bookPrices);
         Map<BookId, RatingSummary> ratingsById = join(bookRatings);
+
         List<WishlistedBook> items = entries.stream()
                 .filter(entry -> detailsById.containsKey(entry.bookId()))
-                .map(entry -> new WishlistedBook(
-                        StorefrontBook.of(detailsById.get(entry.bookId()), pricesById.get(entry.bookId()),
-                                ratingsById.getOrDefault(entry.bookId(), RatingSummary.NONE)),
-                        entry.addedAt()))
+                .map(entry -> {
+                    var book = detailsById.get(entry.bookId());
+                    var price = pricesById.get(entry.bookId());
+                    var rating = ratingsById.getOrDefault(entry.bookId(), RatingSummary.NONE);
+                    return new WishlistedBook(StorefrontBook.of(book, price, rating), entry.addedAt());
+                })
                 .toList();
         return new PageImpl<>(items, page, entries.getTotalElements());
+    }
+
+    private CompletableFuture<Map<BookId, RatingSummary>> getBookRatingsAsync(List<BookId> ids) {
+        return CompletableFuture.supplyAsync(() -> ratings.summariesOf(ids), queries);
+    }
+
+    private CompletableFuture<Map<BookId, BookDetails>> retrieveBooksByIdsAsync(List<BookId> ids) {
+        BookSearch mathcingBookSearch = BookSearch.EMPTY.matching(among(ids));
+        return CompletableFuture.supplyAsync(() -> findBooks(mathcingBookSearch), queries);
+    }
+
+    private Map<BookId, BookDetails> findBooks(BookSearch mathcingBookSearch) {
+        return catalog.findBooks(mathcingBookSearch, Pageable.unpaged()).stream()
+                .collect(toMap(BookDetails::id, Function.identity()));
+    }
+
+    private CompletableFuture<Map<BookId, Money>> getBookPricesAsync(List<BookId> ids) {
+        return CompletableFuture.supplyAsync(() -> prices.pricesOf(ids), queries);
     }
 
     /**
