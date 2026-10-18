@@ -1,6 +1,6 @@
 # Design: wishlist
 
-Status: proposed (2026-10-18).
+Status: implemented (2026-10-18).
 
 ## Goal
 
@@ -54,8 +54,8 @@ public interface Wishlist {
 public record WishlistEntry(BookId bookId, Instant addedAt) {}
 ```
 
-Internal (`wishlist.internal`): `WishlistItem` entity (composite key account + book, `addedAt`), repository,
-`WishlistService`, `WishlistController`, `WishlistFullException` (409), `UnknownBookException` (404, as in `rating`),
+Internal (`wishlist.internal`): `WishlistItems` (a `JdbcClient` repository over `wishlist_item`, as `rating` does;
+no entity), `WishlistService`, `WishlistController`, `WishlistFullException` (409), `UnknownBookException` (404, as in `rating`),
 `WishlistAccountDeletion`, and a listener for `BookDeletedEvent`.
 
 Behavior:
@@ -94,7 +94,7 @@ lists capped at 200.
 
 `storefront` gets the page of `WishlistEntry` from `Wishlist`, then loads those books through `BookCatalog`, prices
 through `Prices` and ratings through `Ratings`, with the same assembly that builds `StorefrontBook`. The controller
-lives in `storefront` for `GET /api/me/wishlist`; `PUT`/`DELETE` live in `wishlist`. The page's totals and paging come
+(`WishlistViewController`) lives in `storefront` for `GET /api/me/wishlist`; `PUT`/`DELETE` live in `wishlist`. The page's totals and paging come
 from the wishlist query. A book that disappeared between the two reads (delete racing the cleanup) is skipped, so
 the page may briefly have fewer items than its size.
 
