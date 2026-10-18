@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.ordering.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.customer.Address;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.pricing.Money;
 import java.time.Instant;
@@ -48,6 +49,9 @@ final class OrderingResponses {
      *                  {@code CANCELLED}
      * @param reason    why the order was rejected, otherwise {@code null}
      * @param createdAt when the order was placed
+     * @param shipping  where the books go; {@code null} in the staff list and for orders placed before addresses
+     *                  were kept
+     * @param invoice   where the invoice goes; {@code null} likewise
      */
     record OrderView(
             OrderId id,
@@ -56,15 +60,26 @@ final class OrderingResponses {
             List<OrderLineView> lines,
             Money total,
             @Nullable String reason,
-            Instant createdAt
+            Instant createdAt,
+            @Nullable Address shipping,
+            @Nullable Address invoice
     ) {
 
         static OrderView from(CustomerOrder order) {
+            return of(order, order.getShipping(), order.getInvoice());
+        }
+
+        /** For the staff list, which doesn't show customers' addresses. */
+        static OrderView withoutAddresses(CustomerOrder order) {
+            return of(order, null, null);
+        }
+
+        private static OrderView of(CustomerOrder order, @Nullable Address shipping, @Nullable Address invoice) {
             var currency = order.getTotal().currency();
             return new OrderView(order.getId(), order.getCustomer(), order.getStatus().name(),
                     order.getLines().stream().map(line -> new OrderLineView(line.getBookId(), line.getTitle(),
                             line.getQuantity(), new Money(line.getUnitPrice(), currency))).toList(),
-                    order.getTotal(), order.getReason(), order.getCreatedAt());
+                    order.getTotal(), order.getReason(), order.getCreatedAt(), shipping, invoice);
         }
     }
 }

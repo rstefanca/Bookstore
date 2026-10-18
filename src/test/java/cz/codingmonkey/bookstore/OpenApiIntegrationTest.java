@@ -63,6 +63,8 @@ class OpenApiIntegrationTest {
                 .jsonPath("$.paths['/api/books'].post.responses['201']").exists()
                 .jsonPath("$.paths['/api/books/{id}'].delete.responses['204']").exists()
                 .jsonPath("$.paths['/api/cart/checkout'].post.responses['202']").exists()
+                .jsonPath("$.paths['/api/cart/checkout'].post.requestBody").exists()
+                .jsonPath("$.paths['/api/cart/checkout'].post.responses['400']").exists()
                 .jsonPath("$.paths['/api/me/addresses'].get.responses['200']").exists()
                 .jsonPath("$.paths['/api/me/addresses/shipping'].put.responses['200']").exists()
                 .jsonPath("$.paths['/api/me/addresses/shipping'].delete.responses['204']").exists()

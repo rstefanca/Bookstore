@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.security.Principal;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -93,17 +94,24 @@ class OrderingController {
      * order: stock is reserved and the payment charged in the background. Follow the {@code Location} to see the
      * order become {@code CONFIRMED} or {@code REJECTED}; a rejected order's books go back into your cart.
      * <p>
+     * Both a shipping and an invoice address are needed, each taken from the body if sent there, else from your
+     * saved addresses. An address sent here applies to this order only and is not saved. The order keeps a copy, so
+     * editing your saved addresses later doesn't change it. Without both, nothing is ordered and the cart stays.
+     * <p>
      * Stock is checked first: if a book has fewer copies than you want, nothing is ordered and the cart stays.
      */
     @PostMapping("/api/cart/checkout")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Tag(name = "Cart")
     @ApiResponse(responseCode = "202", description = "The order, still PENDING")
+    @ApiResponse(responseCode = "400", description = """
+            An address in the body is invalid, or the shipping or invoice address is neither sent nor saved""")
     @ApiResponse(responseCode = "409", description = """
             The cart is empty, some books are no longer for sale, some books don't have enough stock (each named with \
             how many copies are left), or the cart was changed by another request at the same time""")
-    ResponseEntity<OrderView> checkout(Principal customer) {
-        OrderView order = carts.checkout(customer.getName());
+    ResponseEntity<OrderView> checkout(
+            @RequestBody(required = false) @Valid @Nullable CheckoutRequest request, Principal customer) {
+        OrderView order = carts.checkout(customer.getName(), request == null ? CheckoutRequest.NONE : request);
         return ResponseEntity.accepted().location(URI.create("/api/orders/" + order.id())).body(order);
     }
 

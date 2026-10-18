@@ -1,11 +1,13 @@
 package cz.codingmonkey.bookstore.ordering.internal;
 
+import cz.codingmonkey.bookstore.customer.Address;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.ordering.OrderIdType;
 import cz.codingmonkey.bookstore.pricing.Money;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -21,6 +23,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
+import org.hibernate.annotations.EmbeddedColumnNaming;
 import org.hibernate.annotations.Type;
 import org.jspecify.annotations.Nullable;
 
@@ -64,6 +67,15 @@ class CustomerOrder {
     @Column(nullable = false)
     private Instant createdAt;
 
+    /** Copied at checkout; {@code null} for orders placed before addresses existed. */
+    @Embedded
+    @EmbeddedColumnNaming("shipping_%s")
+    private @Nullable Address shipping;
+
+    @Embedded
+    @EmbeddedColumnNaming("invoice_%s")
+    private @Nullable Address invoice;
+
     /** The undo steps seen so far; set only through {@link OrderRepository}, without a version check. */
     @Column(nullable = false)
     private boolean stockReleased;
@@ -77,10 +89,12 @@ class CustomerOrder {
     protected CustomerOrder() {
     }
 
-    CustomerOrder(String customer, List<OrderLine> lines, Currency currency) {
+    CustomerOrder(String customer, List<OrderLine> lines, Currency currency, Address shipping, Address invoice) {
         this.customer = customer;
         this.lines.addAll(lines);
         this.currency = currency;
+        this.shipping = shipping;
+        this.invoice = invoice;
         this.total = lines.stream().map(OrderLine::lineTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
         this.status = OrderStatus.PENDING;
         this.createdAt = Instant.now();
@@ -93,6 +107,8 @@ class CustomerOrder {
     Money getTotal() { return new Money(total, currency); }
     @Nullable String getReason() { return reason; }
     Instant getCreatedAt() { return createdAt; }
+    @Nullable Address getShipping() { return shipping; }
+    @Nullable Address getInvoice() { return invoice; }
 
     boolean stockReserved() {
         return moveOn(OrderStatus.PENDING, OrderStatus.AWAITING_PAYMENT, null);

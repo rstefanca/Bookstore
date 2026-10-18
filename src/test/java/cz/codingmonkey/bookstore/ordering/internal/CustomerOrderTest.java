@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.customer.TestAddresses;
 import cz.codingmonkey.bookstore.pricing.Money;
 import java.math.BigDecimal;
 import java.util.Currency;
@@ -17,12 +18,18 @@ class CustomerOrderTest {
 
     final CustomerOrder order = new CustomerOrder("rita", List.of(
             new OrderLine(new BookId(1), "Dune", 2, new BigDecimal("14.99")),
-            new OrderLine(new BookId(2), "Foundation", 1, new BigDecimal("11.99"))), Currency.getInstance("EUR"));
+            new OrderLine(new BookId(2), "Foundation", 1, new BigDecimal("11.99"))), Currency.getInstance("EUR"), TestAddresses.SHIPPING, TestAddresses.INVOICE);
 
     @Test
     void startsPendingWithTheTotalOfAllLines() {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(order.getTotal()).isEqualTo(Money.of("41.97", "EUR"));
+    }
+
+    @Test
+    void keepsItsOwnAddresses() {
+        assertThat(order.getShipping()).isEqualTo(TestAddresses.SHIPPING);
+        assertThat(order.getInvoice()).isEqualTo(TestAddresses.INVOICE);
     }
 
     @Test

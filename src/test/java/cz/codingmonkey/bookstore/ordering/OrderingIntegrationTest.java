@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.customer.TestAddresses;
 import cz.codingmonkey.bookstore.inventory.StockReleased;
 import cz.codingmonkey.bookstore.payment.PaymentRefunded;
 import java.time.Duration;
@@ -55,6 +56,7 @@ class OrderingIntegrationTest {
     void setUp() {
         buyer = username("buyer");
         customer = signUp(buyer);
+        saveAddresses(customer);
         author = id(staff.post().uri("/api/authors").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"name\": \"Order Author\"}").exchange());
     }
@@ -333,6 +335,13 @@ class OrderingIntegrationTest {
         return RestTestClient.bindToServer().baseUrl("http://localhost:" + port)
                 .defaultHeaders(headers -> headers.setBasicAuth(username, "buyer-password-1"))
                 .build();
+    }
+
+    private static void saveAddresses(RestTestClient client) {
+        client.put().uri("/api/me/addresses/shipping").contentType(MediaType.APPLICATION_JSON)
+                .body(TestAddresses.json(TestAddresses.SHIPPING)).exchange().expectStatus().isOk();
+        client.put().uri("/api/me/addresses/invoice").contentType(MediaType.APPLICATION_JSON)
+                .body(TestAddresses.json(TestAddresses.INVOICE)).exchange().expectStatus().isOk();
     }
 
     private static String isbn() {

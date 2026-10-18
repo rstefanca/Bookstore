@@ -39,7 +39,7 @@ class OrderService {
     }
 
     Page<OrderView> findAll(Pageable page) {
-        return orders.findAllBy(page).map(OrderView::from);
+        return orders.findAllBy(page).map(OrderView::withoutAddresses);
     }
 
     /** Cancels a confirmed order: its stock goes back and the payment is refunded. */

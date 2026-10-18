@@ -9,6 +9,7 @@ import cz.codingmonkey.bookstore.bookcatalog.internal.AuthorService;
 import cz.codingmonkey.bookstore.bookcatalog.internal.BookDeletionVetoedException;
 import cz.codingmonkey.bookstore.bookcatalog.internal.BookRequest;
 import cz.codingmonkey.bookstore.bookcatalog.internal.BookService;
+import cz.codingmonkey.bookstore.customer.TestAddresses;
 import cz.codingmonkey.bookstore.inventory.internal.InventoryService;
 import cz.codingmonkey.bookstore.pricing.internal.PricingService;
 import java.math.BigDecimal;
@@ -63,7 +64,7 @@ class CheckoutDeleteRaceTest {
         CompletableFuture<Void> delete = new CompletableFuture<>();
 
         transaction.executeWithoutResult(status -> {
-            carts.checkout(customer); // locks the book against deletion until this transaction commits
+            carts.checkout(customer, new CheckoutRequest(TestAddresses.SHIPPING, TestAddresses.INVOICE)); // locks the book against deletion until this transaction commits
 
             CompletableFuture.runAsync(() -> books.delete(bookId))
                     .whenComplete((ok, error) -> {

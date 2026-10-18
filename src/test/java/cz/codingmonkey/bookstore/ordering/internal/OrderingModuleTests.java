@@ -12,6 +12,9 @@ import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.customer.Address;
+import cz.codingmonkey.bookstore.customer.CustomerAddresses;
+import cz.codingmonkey.bookstore.customer.TestAddresses;
 import cz.codingmonkey.bookstore.inventory.ReservationId;
 import cz.codingmonkey.bookstore.inventory.Stock;
 import cz.codingmonkey.bookstore.inventory.StockReleaseRequested;
@@ -76,6 +79,10 @@ class OrderingModuleTests {
     @MockitoBean
     Stock stock;
 
+    /** The customer module doesn't run here. */
+    @MockitoBean
+    CustomerAddresses addresses;
+
     @Autowired
     CartService carts;
 
@@ -103,6 +110,8 @@ class OrderingModuleTests {
                 DUNE, new BookDetails(DUNE, "Dune", List.of(), List.of(), "isbn-1", 1965, null),
                 FOUNDATION, new BookDetails(FOUNDATION, "Foundation", List.of(), List.of(), "isbn-2", 1951, null));
         Map<BookId, Money> bookPrices = Map.of(DUNE, Money.of("14.99", "EUR"), FOUNDATION, Money.of("11.99", "EUR"));
+        given(addresses.shipping(any())).willReturn(Optional.of(TestAddresses.SHIPPING));
+        given(addresses.invoice(any())).willReturn(Optional.of(TestAddresses.INVOICE));
         given(catalog.findBook(any()))
                 .willAnswer(call -> Optional.ofNullable(books.get(call.<BookId>getArgument(0))));
         given(catalog.existsAndLockAgainstDeletion(any()))
@@ -132,7 +141,8 @@ class OrderingModuleTests {
             // A book of its own, so other tests' orders don't count.
             BookId book = new BookId(1_000_000 + Math.abs(UUID.randomUUID().hashCode() % 1_000_000));
             CustomerOrder order = orderRepository.save(new CustomerOrder(customer,
-                    List.of(new OrderLine(book, "Book", 1, BigDecimal.TEN)), Currency.getInstance("EUR")));
+                    List.of(new OrderLine(book, "Book", 1, BigDecimal.TEN)), Currency.getInstance("EUR"),
+                    TestAddresses.SHIPPING, TestAddresses.INVOICE));
             jdbc.update("UPDATE customer_order SET status = ? WHERE id = ?", status.name(), order.getId().value());
 
             boolean blocks = switch (status) {
@@ -151,7 +161,7 @@ class OrderingModuleTests {
         carts.setQuantity(customer, DUNE, 1);
         given(catalog.existsAndLockAgainstDeletion(DUNE)).willReturn(false);
 
-        assertThatThrownBy(() -> carts.checkout(customer))
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(NotForSaleException.class)
                 .hasMessageContaining("No longer for sale: book " + DUNE.value());
     }
@@ -162,7 +172,7 @@ class OrderingModuleTests {
         carts.setQuantity(customer, FOUNDATION, 1);
         given(stock.availableOf(anyCollection())).willReturn(Map.of(DUNE, 1, FOUNDATION, 5));
 
-        assertThatThrownBy(() -> carts.checkout(customer))
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(OutOfStockException.class)
                 .hasMessage("Not enough stock: Dune (1 left). Change the quantities and check out again.");
 
@@ -177,7 +187,7 @@ class OrderingModuleTests {
         carts.setQuantity(customer, FOUNDATION, 3);
         given(stock.availableOf(anyCollection())).willReturn(Map.of(DUNE, 0, FOUNDATION, 2));
 
-        assertThatThrownBy(() -> carts.checkout(customer))
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .hasMessage("Not enough stock: Dune (0 left), Foundation (2 left). "
                         + "Change the quantities and check out again.");
     }
@@ -188,7 +198,7 @@ class OrderingModuleTests {
         given(catalog.existsAndLockAgainstDeletion(DUNE)).willReturn(false);
         given(stock.availableOf(anyCollection())).willReturn(Map.of(DUNE, 0));
 
-        assertThatThrownBy(() -> carts.checkout(customer)).isInstanceOf(NotForSaleException.class);
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE)).isInstanceOf(NotForSaleException.class);
     }
 
     @Test
@@ -196,7 +206,7 @@ class OrderingModuleTests {
         carts.setQuantity(customer, DUNE, 2);
         carts.setQuantity(customer, FOUNDATION, 1);
 
-        scenario.stimulate(() -> carts.checkout(customer))
+        scenario.stimulate(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .andWaitForEventOfType(StockReservationRequested.class)
                 .matching(request -> request.actor().equals(customer))
                 .toArriveAndVerify((request, order) -> {
@@ -244,7 +254,7 @@ class OrderingModuleTests {
     void stockRejectionPutsTheLinesBackIntoTheCart(Scenario scenario) {
         carts.setQuantity(customer, DUNE, 2);
         carts.setQuantity(customer, FOUNDATION, 1);
-        OrderView order = carts.checkout(customer);
+        OrderView order = carts.checkout(customer, CheckoutRequest.NONE);
         carts.setQuantity(customer, DUNE, 19); // added again while the order was pending
 
         scenario.publish(new StockReservationFailed(reservation(order), "not enough", List.of(DUNE)))
@@ -343,7 +353,7 @@ class OrderingModuleTests {
         carts.setQuantity(customer, DUNE, 1);
         given(prices.pricesOf(anyCollection())).willReturn(Map.of());
 
-        assertThatThrownBy(() -> carts.checkout(customer))
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(NotForSaleException.class)
                 .hasMessageStartingWith("No longer for sale: Dune");
         assertThat(carts.view(customer).items()).as("cart unchanged").hasSize(1);
@@ -351,7 +361,75 @@ class OrderingModuleTests {
 
     @Test
     void cantCheckOutAnEmptyCart() {
-        assertThatThrownBy(() -> carts.checkout(customer)).isInstanceOf(EmptyCartException.class);
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE)).isInstanceOf(EmptyCartException.class);
+    }
+
+    @Test
+    void checkoutUsesSavedAddresses() {
+        carts.setQuantity(customer, DUNE, 1);
+
+        OrderView order = carts.checkout(customer, CheckoutRequest.NONE);
+
+        assertThat(order.shipping()).isEqualTo(TestAddresses.SHIPPING);
+        assertThat(order.invoice()).isEqualTo(TestAddresses.INVOICE);
+        CustomerOrder saved = orderRepository.findById(order.id()).orElseThrow();
+        assertThat(saved.getShipping()).isEqualTo(TestAddresses.SHIPPING);
+        assertThat(saved.getInvoice()).isEqualTo(TestAddresses.INVOICE);
+    }
+
+    @Test
+    void requestAddressesOverrideSavedOnes() {
+        carts.setQuantity(customer, DUNE, 1);
+        Address other = new Address("Other", "Side 2", "Plzen", "301 00", "CZ");
+
+        OrderView order = carts.checkout(customer, new CheckoutRequest(null, other));
+
+        assertThat(order.shipping()).isEqualTo(TestAddresses.SHIPPING);
+        assertThat(order.invoice()).isEqualTo(other);
+    }
+
+    @Test
+    void missingShippingIsRefusedAndNothingIsReserved(PublishedEvents events) {
+        carts.setQuantity(customer, DUNE, 1);
+        given(addresses.shipping(customer)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
+                .isInstanceOf(MissingAddressException.class)
+                .hasMessage("Shipping address is required: send one or save one");
+
+        assertThat(carts.view(customer).items()).hasSize(1);
+        assertThat(events.ofType(StockReservationRequested.class)
+                .matching(request -> request.actor().equals(customer))).isEmpty();
+    }
+
+    @Test
+    void missingInvoiceIsRefused() {
+        carts.setQuantity(customer, DUNE, 1);
+        given(addresses.invoice(customer)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
+                .isInstanceOf(MissingAddressException.class)
+                .hasMessage("Invoice address is required: send one or save one");
+    }
+
+    @Test
+    void bothMissingNamesBoth() {
+        carts.setQuantity(customer, DUNE, 1);
+        given(addresses.shipping(customer)).willReturn(Optional.empty());
+        given(addresses.invoice(customer)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
+                .isInstanceOf(MissingAddressException.class)
+                .hasMessage("Shipping and invoice addresses are required: send them or save them");
+    }
+
+    @Test
+    void emptyCartIsStillConflictWhenAddressesAreMissing() {
+        given(addresses.shipping(customer)).willReturn(Optional.empty());
+        given(addresses.invoice(customer)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
+                .isInstanceOf(EmptyCartException.class);
     }
 
     @Test
@@ -377,7 +455,7 @@ class OrderingModuleTests {
         carts.setQuantity(customer, DUNE, 2);
         carts.setQuantity(customer, FOUNDATION, 1);
 
-        OrderView order = carts.checkout(customer);
+        OrderView order = carts.checkout(customer, CheckoutRequest.NONE);
 
         assertThat(progress(events, order)).singleElement().satisfies(placed -> {
             assertThat(placed.step()).isEqualTo(OrderStep.PLACED);
@@ -491,7 +569,7 @@ class OrderingModuleTests {
 
     private OrderView placeOrder() {
         carts.setQuantity(customer, DUNE, 1);
-        return carts.checkout(customer);
+        return carts.checkout(customer, CheckoutRequest.NONE);
     }
 
     private void reserve(Scenario scenario, OrderView order) {

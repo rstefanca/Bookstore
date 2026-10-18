@@ -3,6 +3,8 @@ package cz.codingmonkey.bookstore.ordering.internal;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.customer.Address;
+import cz.codingmonkey.bookstore.customer.CustomerAddresses;
 import cz.codingmonkey.bookstore.inventory.Stock;
 import cz.codingmonkey.bookstore.inventory.ReservationId;
 import cz.codingmonkey.bookstore.inventory.StockReservationRequested;
@@ -35,6 +37,7 @@ class CartService {
     private final BookCatalog catalog;
     private final Prices prices;
     private final Stock stock;
+    private final CustomerAddresses addresses;
     private final ApplicationEventPublisher events;
 
     CartService(CartRepository carts,
@@ -42,12 +45,14 @@ class CartService {
                 BookCatalog catalog,
                 Prices prices,
                 Stock stock,
+                CustomerAddresses addresses,
                 ApplicationEventPublisher events) {
         this.carts = carts;
         this.orders = orders;
         this.catalog = catalog;
         this.prices = prices;
         this.stock = stock;
+        this.addresses = addresses;
         this.events = events;
     }
 
@@ -96,11 +101,19 @@ class CartService {
     /**
      * Turns the cart into an order with today's titles and prices, empties the cart, and starts the order process
      * by asking the inventory to reserve the stock. Its books can't be deleted until the order is committed (and
-     * then {@link SoldBookDeletionPolicy} keeps them).
+     * then {@link SoldBookDeletionPolicy} keeps them). The order keeps a copy of the shipping and invoice address:
+     * the one in the request, else the customer's saved one; if either is missing nothing is ordered.
      */
     @Transactional
-    OrderView checkout(String customer) {
+    OrderView checkout(String customer, CheckoutRequest request) {
         Cart cart = carts.findById(customer).filter(c -> !c.isEmpty()).orElseThrow(EmptyCartException::new);
+        Address shipping = request.shipping() != null ? request.shipping()
+                : addresses.shipping(customer).orElse(null);
+        Address invoice = request.invoice() != null ? request.invoice()
+                : addresses.invoice(customer).orElse(null);
+        if (shipping == null || invoice == null) {
+            throw new MissingAddressException(shipping == null, invoice == null);
+        }
         int cartSize = cart.countLines();
         List<CartLine> cartLines = cart.getLines();
         Map<BookId, Money> currentPrices = getCurrentPrices(cartLines);
@@ -130,7 +143,7 @@ class CartService {
         
         checkStock(lines);
 
-        CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency));
+        CustomerOrder order = orders.save(new CustomerOrder(customer, lines, currency, shipping, invoice));
         cart.clear();
 
         reserveStockAndPlaceOrder(customer, order, lines);
