@@ -26,8 +26,9 @@ class CustomerAccountDeletion implements AccountDeletionPolicy {
     @Override
     @Transactional
     public void removePersonalData(AccountId account) {
-        addresses.deleteById(account);
-        changes.info("Removed the saved addresses of account {}", account);
+        if (addresses.deleteByCustomer(account.value()) > 0) {
+            changes.info("Removed the saved addresses of account {}", account);
+        }
     }
 
     @Override

@@ -6,12 +6,12 @@ import cz.codingmonkey.bookstore.security.AccountRequests.NewPassword;
 import cz.codingmonkey.bookstore.security.AccountRequests.PasswordChange;
 import cz.codingmonkey.bookstore.security.AccountRequests.Registration;
 import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.security.Principal;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -114,20 +114,20 @@ class AccountController {
     @ApiResponse(responseCode = "204", description = "Deleted")
     @ApiResponse(responseCode = "404", description = "No account with this id")
     @ApiResponse(responseCode = "409", description = "It is your own account, or the last admin account")
-    void delete(@PathVariable AccountId id, Principal principal) {
-        service.delete(id, principal.getName());
+    void delete(@PathVariable AccountId id) {
+        service.delete(id, CurrentUser.requireId());
     }
 
     /** Returns the signed-in account, e.g. to check credentials or see your role. */
     @GetMapping("/me")
-    AccountResponse me(Principal principal) {
-        return service.findByUsername(principal.getName());
+    AccountResponse me() {
+        return service.findLive(CurrentUser.requireId());
     }
 
     /** Changes your name. */
     @PutMapping("/me")
-    AccountResponse renameOwn(@Valid @RequestBody Names request, Principal principal) {
-        return service.renameOwn(principal.getName(), request.firstName(), request.lastName());
+    AccountResponse renameOwn(@Valid @RequestBody Names request) {
+        return service.renameOwn(CurrentUser.requireId(), request.firstName(), request.lastName());
     }
 
     /** Changes your password; sign in with the new one from then on. */
@@ -136,8 +136,8 @@ class AccountController {
     @ApiResponse(responseCode = "204", description = "Password changed")
     @ApiResponse(responseCode = "400",
             description = "The current password is wrong, or the new one is too short or too long")
-    void changeOwnPassword(@Valid @RequestBody PasswordChange request, Principal principal) {
-        service.changeOwnPassword(principal.getName(), request.currentPassword(), request.newPassword());
+    void changeOwnPassword(@Valid @RequestBody PasswordChange request) {
+        service.changeOwnPassword(CurrentUser.requireId(), request.currentPassword(), request.newPassword());
     }
 
     /** Two requests created the same username at the same time. */

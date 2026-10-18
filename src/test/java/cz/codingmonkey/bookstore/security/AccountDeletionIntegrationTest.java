@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.shared.AccountId;
 import java.util.List;
@@ -178,9 +179,9 @@ class AccountDeletionIntegrationTest {
         others.forEach(other -> jdbc.update("update account set role = 'STAFF' where id = ?", other));
         try {
             policy.holding.add(new AccountId(first));
-            service.delete(new AccountId(first), "nobody"); // two live admins: soft delete is fine
+            service.delete(new AccountId(first), TestAccountIds.next()); // two live admins: soft delete is fine
 
-            assertThatThrownBy(() -> service.delete(new AccountId(second), "nobody"))
+            assertThatThrownBy(() -> service.delete(new AccountId(second), TestAccountIds.next()))
                     .isInstanceOf(LastAdminException.class);
         } finally {
             others.forEach(other -> jdbc.update("update account set role = 'ADMIN' where id = ?", other));
@@ -221,9 +222,9 @@ class AccountDeletionIntegrationTest {
 
         transaction.executeWithoutResult(status -> {
             lockRow(accountId);
-            runAsync(second, () -> service.delete(accountId, "nobody-2")); // loads the account, then waits for the lock
+            runAsync(second, () -> service.delete(accountId, TestAccountIds.next())); // loads the account, then waits for the lock
             sleep(500);
-            service.delete(accountId, "nobody-1");
+            service.delete(accountId, TestAccountIds.next());
         });
 
         assertThatThrownBy(() -> second.get(10, java.util.concurrent.TimeUnit.SECONDS))
@@ -242,7 +243,7 @@ class AccountDeletionIntegrationTest {
             lockRow(accountId);
             runAsync(rename, () -> service.rename(accountId, "New", "Name"));
             sleep(500);
-            service.delete(accountId, "nobody");
+            service.delete(accountId, TestAccountIds.next());
         });
 
         assertThatThrownBy(() -> rename.get(10, java.util.concurrent.TimeUnit.SECONDS))

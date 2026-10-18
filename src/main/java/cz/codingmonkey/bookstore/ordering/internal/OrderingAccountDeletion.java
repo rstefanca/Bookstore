@@ -31,8 +31,9 @@ class OrderingAccountDeletion implements AccountDeletionPolicy {
     @Override
     @Transactional
     public void removePersonalData(AccountId account) {
-        carts.deleteById(account);
-        changes.info("Removed the cart of account {}", account);
+        if (carts.deleteByCustomerId(account.value()) > 0) {
+            changes.info("Removed the cart of account {}", account);
+        }
     }
 
     /** A plain column update: order steps write only their own columns ({@code @DynamicUpdate}), so none undoes it. */

@@ -17,6 +17,8 @@ interface AccountRepository extends JpaRepository<Account, AccountId> {
 
     boolean existsByUsernameIgnoreCaseAndDeletedAtIsNull(String username);
 
+    long countByDeletedAtIsNull();
+
     Page<Account> findAllByDeletedAtIsNull(Pageable page);
 
     List<Account> findAllByIdInAndDeletedAtIsNull(Collection<AccountId> ids);

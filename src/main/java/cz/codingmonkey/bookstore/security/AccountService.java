@@ -59,13 +59,13 @@ class AccountService implements Accounts {
         return accounts.findAllByDeletedAtIsNull(page).map(AccountResponse::from);
     }
 
-    AccountResponse findByUsername(String username) {
-        return accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username).map(AccountResponse::from)
-                .orElseThrow(() -> new InvalidAccountException("No account " + username));
+    AccountResponse findLive(AccountId id) {
+        return accounts.findById(id).filter(account -> account.getDeletedAt() == null).map(AccountResponse::from)
+                .orElseThrow(() -> new InvalidAccountException("No account " + id));
     }
 
     boolean noAccountsExist() {
-        return accounts.count() == 0;
+        return accounts.countByDeletedAtIsNull() == 0;
     }
 
     /**
@@ -103,9 +103,8 @@ class AccountService implements Accounts {
 
     /** Anyone changes their own name. */
     @Transactional
-    AccountResponse renameOwn(String username, String firstName, String lastName) {
-        return rename(lockLive(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
-                .orElseThrow(() -> new InvalidAccountException("No account " + username))), firstName, lastName);
+    AccountResponse renameOwn(AccountId id, String firstName, String lastName) {
+        return rename(lockLive(getOwn(id)), firstName, lastName);
     }
 
     private AccountResponse rename(Account account, String firstName, String lastName) {
@@ -125,9 +124,8 @@ class AccountService implements Accounts {
 
     /** Anyone changes their own password, confirming the current one. */
     @Transactional
-    void changeOwnPassword(String username, String currentPassword, String newPassword) {
-        Account account = lockLive(accounts.findByUsernameIgnoreCaseAndDeletedAtIsNull(username)
-                .orElseThrow(() -> new InvalidAccountException("No account " + username)));
+    void changeOwnPassword(AccountId id, String currentPassword, String newPassword) {
+        Account account = lockLive(getOwn(id));
         if (!passwordEncoder.matches(currentPassword, account.getPasswordHash())) {
             throw new InvalidAccountException("The current password is incorrect");
         }
@@ -144,9 +142,9 @@ class AccountService implements Accounts {
      * of removed.
      */
     @Transactional
-    void delete(AccountId id, String currentUsername) {
+    void delete(AccountId id, AccountId current) {
         Account account = get(id);
-        if (account.getUsername().equalsIgnoreCase(currentUsername)) {
+        if (id.equals(current)) {
             throw new LastAdminException("You can't delete your own account");
         }
         if (account.getRole() == Role.ADMIN
@@ -200,6 +198,11 @@ class AccountService implements Accounts {
             throw new AccountNotFoundException(account.getId());
         }
         return account;
+    }
+
+    private Account getOwn(AccountId id) {
+        return accounts.findById(id).filter(account -> account.getDeletedAt() == null)
+                .orElseThrow(() -> new InvalidAccountException("No account " + id));
     }
 
     private Account get(AccountId id) {

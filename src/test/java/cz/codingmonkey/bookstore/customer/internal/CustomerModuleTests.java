@@ -15,6 +15,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,6 +26,7 @@ import org.springframework.modulith.test.ApplicationModuleTest;
 
 @ApplicationModuleTest
 @Import(TestcontainersConfiguration.class)
+@ExtendWith(OutputCaptureExtension.class)
 class CustomerModuleTests {
 
     @Autowired
@@ -56,6 +60,17 @@ class CustomerModuleTests {
                 Integer.class, u.value())).isZero();
         assertThat(service.get(other).shipping()).isEqualTo(SHIPPING);
         deletion.removePersonalData(u); // nothing left: still fine
+    }
+
+    @Test
+    void removingAbsentAddressesLogsNothingAndRemovingPresentOnesDoes(CapturedOutput output) {
+        AccountId u = user();
+        deletion.removePersonalData(u);
+        assertThat(output.getAll()).doesNotContain("Removed the saved addresses of account " + u);
+
+        service.saveShipping(u, SHIPPING);
+        deletion.removePersonalData(u);
+        assertThat(output.getAll()).contains("Removed the saved addresses of account " + u);
     }
 
     @Test

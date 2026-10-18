@@ -23,4 +23,13 @@ interface SavedAddressesRepository extends JpaRepository<SavedAddresses, Account
     @Query(value = "INSERT INTO customer_address (customer_id) VALUES (:customer) ON CONFLICT DO NOTHING",
             nativeQuery = true)
     void insertIfAbsent(@Param("customer") long customer);
+
+    /**
+     * A bulk delete (no find first, so nothing to race with).
+     *
+     * @return the number of rows removed (0 or 1)
+     */
+    @Modifying
+    @Query(value = "DELETE FROM customer_address WHERE customer_id = :customer", nativeQuery = true)
+    int deleteByCustomer(@Param("customer") long customer);
 }

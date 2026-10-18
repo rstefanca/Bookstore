@@ -56,6 +56,9 @@ import java.util.stream.StreamSupport;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -74,6 +77,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 @ApplicationModuleTest
 @Import(TestcontainersConfiguration.class)
+@ExtendWith(OutputCaptureExtension.class)
 class OrderingModuleTests {
 
     static final BookId DUNE = new BookId(1);
@@ -184,6 +188,22 @@ class OrderingModuleTests {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM cart_line WHERE customer_id = ?", Integer.class,
                 customer.value())).isZero();
         deletion.removePersonalData(customer); // nothing left: still fine
+    }
+
+    @Test
+    void removingAnAbsentCartLogsNothing(CapturedOutput output) {
+        deletion.removePersonalData(customer);
+
+        assertThat(output.getAll()).doesNotContain("Removed the cart of account " + customer);
+    }
+
+    @Test
+    void removingACartLogsIt(CapturedOutput output) {
+        carts.setQuantity(customer, DUNE, 1);
+
+        deletion.removePersonalData(customer);
+
+        assertThat(output.getAll()).contains("Removed the cart of account " + customer);
     }
 
     @Test

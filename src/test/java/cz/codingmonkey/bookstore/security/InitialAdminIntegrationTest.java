@@ -70,13 +70,13 @@ class InitialAdminIntegrationTest {
     @Test
     @Order(2)
     void twoAdminsDeletingEachOtherAtOnceLeaveOne() throws Exception {
-        AccountId first = accounts.findByUsername("admin").id();
+        AccountId first = new AccountId(jdbc.queryForObject("SELECT id FROM account WHERE username = ?", Long.class, "admin"));
         AccountId second = accounts.create("second-admin", "Second", "Admin", "a-long-password", Role.ADMIN).id();
         var bothReady = new CyclicBarrier(2);
 
         List<CompletableFuture<Void>> deletions = new ArrayList<>();
-        deletions.add(CompletableFuture.runAsync(() -> deleteWhenReady(bothReady, first, "second-admin")));
-        deletions.add(CompletableFuture.runAsync(() -> deleteWhenReady(bothReady, second, "admin")));
+        deletions.add(CompletableFuture.runAsync(() -> deleteWhenReady(bothReady, first, second)));
+        deletions.add(CompletableFuture.runAsync(() -> deleteWhenReady(bothReady, second, first)));
 
         List<Throwable> failures = new ArrayList<>();
         for (var deletion : deletions) {
@@ -92,7 +92,22 @@ class InitialAdminIntegrationTest {
                 .isEqualTo(1);
     }
 
-    private void deleteWhenReady(CyclicBarrier bothReady, AccountId id, String deletedBy) {
+    @Test
+    @Order(3)
+    void softDeletedAccountsDoNotCountAsExisting() {
+        jdbc.update("DELETE FROM account");
+        assertThat(accounts.noAccountsExist()).isTrue();
+        jdbc.update("""
+                INSERT INTO account (username, password_hash, role, deleted_at)
+                VALUES ('~deleted-900001', 'x', 'CUSTOMER', now())""");
+        assertThat(accounts.noAccountsExist()).isTrue();
+        jdbc.update("""
+                INSERT INTO account (username, password_hash, role)
+                VALUES ('live-one', 'x', 'CUSTOMER')""");
+        assertThat(accounts.noAccountsExist()).isFalse();
+    }
+
+    private void deleteWhenReady(CyclicBarrier bothReady, AccountId id, AccountId deletedBy) {
         try {
             bothReady.await();
         } catch (Exception e) {

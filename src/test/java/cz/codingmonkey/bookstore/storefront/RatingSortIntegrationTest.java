@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.LIST;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
@@ -220,7 +221,7 @@ class RatingSortIntegrationTest {
     private void rate(BookId book, int... stars) {
         for (int i = 0; i < stars.length; i++) {
             jdbc.update("INSERT INTO book_rating (book_id, customer_id, stars, rated_at) VALUES (?, ?, ?, ?)",
-                    book.value(), i + 1L, stars[i], OffsetDateTime.now());
+                    book.value(), TestAccountIds.next().value(), stars[i], OffsetDateTime.now());
         }
     }
 }

@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.rating.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.bookcatalog.AuthorId;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
@@ -99,12 +100,14 @@ class RatingRankingIntegrationTest {
     void ratingsByReturnsTheCustomersStars() {
         BookId x = createBook("X");
         BookId y = createBook("Y");
-        insertRating(x, new AccountId(1), 5);
-        insertRating(y, new AccountId(1), 2);
-        insertRating(x, new AccountId(2), 3);
+        AccountId first = TestAccountIds.next();
+        AccountId second = TestAccountIds.next();
+        insertRating(x, first, 5);
+        insertRating(y, first, 2);
+        insertRating(x, second, 3);
 
-        assertThat(ratings.ratingsBy(new AccountId(1))).isEqualTo(Map.of(x, 5, y, 2));
-        assertThat(ratings.ratingsBy(new AccountId(999))).isEmpty();
+        assertThat(ratings.ratingsBy(first)).isEqualTo(Map.of(x, 5, y, 2));
+        assertThat(ratings.ratingsBy(TestAccountIds.next())).isEmpty();
     }
 
     @Test
@@ -154,7 +157,7 @@ class RatingRankingIntegrationTest {
     /** One rating per given star value, by customers c1, c2, ... in turn. */
     private void rate(BookId book, int... stars) {
         for (int i = 0; i < stars.length; i++) {
-            insertRating(book, new AccountId(i + 1), stars[i]);
+            insertRating(book, TestAccountIds.next(), stars[i]);
         }
     }
 
