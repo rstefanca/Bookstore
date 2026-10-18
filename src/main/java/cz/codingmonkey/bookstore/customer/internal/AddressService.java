@@ -27,42 +27,42 @@ class AddressService implements CustomerAddresses {
     }
 
     @Override
-    public Optional<Address> shipping(AccountId customer) {
+    public Optional<Address> getShippingAddress(AccountId customer) {
         return repository.findById(customer).map(SavedAddresses::shipping);
     }
 
     @Override
-    public Optional<Address> invoice(AccountId customer) {
+    public Optional<Address> getInvoiceAddress(AccountId customer) {
         return repository.findById(customer).map(SavedAddresses::invoice);
     }
 
     @Transactional
-    Address saveShipping(AccountId customer, Address address) {
-        lock(customer).shipping(address);
+    Address saveShippingAddress(AccountId customer, Address address) {
+        getOrCreateAdressesForUpdateLocking(customer).shipping(address);
         changes.info("Account {} saved a shipping address", customer);
         return address;
     }
 
     @Transactional
-    Address saveInvoice(AccountId customer, Address address) {
-        lock(customer).invoice(address);
+    Address saveInvoiceAddress(AccountId customer, Address address) {
+        getOrCreateAdressesForUpdateLocking(customer).invoice(address);
         changes.info("Account {} saved an invoice address", customer);
         return address;
     }
 
     @Transactional
-    void deleteShipping(AccountId customer) {
-        lock(customer).shipping(null);
+    void deleteShippingAddress(AccountId customer) {
+        getOrCreateAdressesForUpdateLocking(customer).shipping(null);
         changes.info("Account {} removed the shipping address", customer);
     }
 
     @Transactional
-    void deleteInvoice(AccountId customer) {
-        lock(customer).invoice(null);
+    void deleteInvoiceAddress(AccountId customer) {
+        getOrCreateAdressesForUpdateLocking(customer).invoice(null);
         changes.info("Account {} removed the invoice address", customer);
     }
 
-    private SavedAddresses lock(AccountId customer) {
+    private SavedAddresses getOrCreateAdressesForUpdateLocking(AccountId customer) {
         repository.insertIfAbsent(customer.value());
         return repository.findAndLockByCustomerId(customer).orElseThrow();
     }

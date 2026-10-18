@@ -135,8 +135,8 @@ class OrderingModuleTests {
                 DUNE, new BookDetails(DUNE, "Dune", List.of(), List.of(), "isbn-1", 1965, null),
                 FOUNDATION, new BookDetails(FOUNDATION, "Foundation", List.of(), List.of(), "isbn-2", 1951, null));
         Map<BookId, Money> bookPrices = Map.of(DUNE, Money.of("14.99", "EUR"), FOUNDATION, Money.of("11.99", "EUR"));
-        given(addresses.shipping(any())).willReturn(Optional.of(TestAddresses.SHIPPING));
-        given(addresses.invoice(any())).willReturn(Optional.of(TestAddresses.INVOICE));
+        given(addresses.getShippingAddress(any())).willReturn(Optional.of(TestAddresses.SHIPPING));
+        given(addresses.getInvoiceAddress(any())).willReturn(Optional.of(TestAddresses.INVOICE));
         given(catalog.findBook(any()))
                 .willAnswer(call -> Optional.ofNullable(books.get(call.<BookId>getArgument(0))));
         given(catalog.existsAndLockAgainstDeletion(any()))
@@ -496,7 +496,7 @@ class OrderingModuleTests {
     @Test
     void missingShippingIsRefusedAndNothingIsReserved(PublishedEvents events) {
         carts.setQuantity(customer, DUNE, 1);
-        given(addresses.shipping(customer)).willReturn(Optional.empty());
+        given(addresses.getShippingAddress(customer)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(MissingAddressException.class)
@@ -510,7 +510,7 @@ class OrderingModuleTests {
     @Test
     void missingInvoiceIsRefused() {
         carts.setQuantity(customer, DUNE, 1);
-        given(addresses.invoice(customer)).willReturn(Optional.empty());
+        given(addresses.getInvoiceAddress(customer)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(MissingAddressException.class)
@@ -520,8 +520,8 @@ class OrderingModuleTests {
     @Test
     void bothMissingNamesBoth() {
         carts.setQuantity(customer, DUNE, 1);
-        given(addresses.shipping(customer)).willReturn(Optional.empty());
-        given(addresses.invoice(customer)).willReturn(Optional.empty());
+        given(addresses.getShippingAddress(customer)).willReturn(Optional.empty());
+        given(addresses.getInvoiceAddress(customer)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(MissingAddressException.class)
@@ -530,8 +530,8 @@ class OrderingModuleTests {
 
     @Test
     void emptyCartIsStillConflictWhenAddressesAreMissing() {
-        given(addresses.shipping(customer)).willReturn(Optional.empty());
-        given(addresses.invoice(customer)).willReturn(Optional.empty());
+        given(addresses.getShippingAddress(customer)).willReturn(Optional.empty());
+        given(addresses.getInvoiceAddress(customer)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> carts.checkout(customer, CheckoutRequest.NONE))
                 .isInstanceOf(EmptyCartException.class);

@@ -46,9 +46,9 @@ class CustomerModuleTests {
     void removePersonalDataDeletesAddresses() {
         AccountId u = user();
         AccountId other = user();
-        service.saveShipping(u, SHIPPING);
-        service.saveInvoice(u, INVOICE);
-        service.saveShipping(other, SHIPPING);
+        service.saveShippingAddress(u, SHIPPING);
+        service.saveInvoiceAddress(u, INVOICE);
+        service.saveShippingAddress(other, SHIPPING);
 
         assertThat(deletion.holdsRecords(u)).isFalse();
         deletion.removePersonalData(u);
@@ -68,7 +68,7 @@ class CustomerModuleTests {
         deletion.removePersonalData(u);
         assertThat(output.getAll()).doesNotContain("Removed the saved addresses of account " + u);
 
-        service.saveShipping(u, SHIPPING);
+        service.saveShippingAddress(u, SHIPPING);
         deletion.removePersonalData(u);
         assertThat(output.getAll()).contains("Removed the saved addresses of account " + u);
     }
@@ -79,28 +79,28 @@ class CustomerModuleTests {
         SavedAddressesView view = service.get(u);
         assertThat(view.shipping()).isNull();
         assertThat(view.invoice()).isNull();
-        assertThat(service.shipping(u)).isEmpty();
-        assertThat(service.invoice(u)).isEmpty();
+        assertThat(service.getShippingAddress(u)).isEmpty();
+        assertThat(service.getInvoiceAddress(u)).isEmpty();
     }
 
     @Test
     void shippingAndInvoiceAreKeptApart() {
         AccountId u = user();
-        service.saveShipping(u, SHIPPING);
-        service.saveInvoice(u, INVOICE);
+        service.saveShippingAddress(u, SHIPPING);
+        service.saveInvoiceAddress(u, INVOICE);
         SavedAddressesView view = service.get(u);
         assertThat(view.shipping()).isEqualTo(SHIPPING);
         assertThat(view.invoice()).isEqualTo(INVOICE);
-        assertThat(service.shipping(u)).contains(SHIPPING);
-        assertThat(service.invoice(u)).contains(INVOICE);
+        assertThat(service.getShippingAddress(u)).contains(SHIPPING);
+        assertThat(service.getInvoiceAddress(u)).contains(INVOICE);
     }
 
     @Test
     void saveReplaces() {
         AccountId u = user();
-        service.saveShipping(u, SHIPPING);
-        service.saveInvoice(u, INVOICE);
-        service.saveShipping(u, INVOICE);
+        service.saveShippingAddress(u, SHIPPING);
+        service.saveInvoiceAddress(u, INVOICE);
+        service.saveShippingAddress(u, INVOICE);
         assertThat(service.get(u).shipping()).isEqualTo(INVOICE);
         assertThat(service.get(u).invoice()).isEqualTo(INVOICE);
     }
@@ -108,17 +108,17 @@ class CustomerModuleTests {
     @Test
     void deleteRemovesOnlyThatOne() {
         AccountId u = user();
-        service.saveShipping(u, SHIPPING);
-        service.saveInvoice(u, INVOICE);
-        service.deleteShipping(u);
+        service.saveShippingAddress(u, SHIPPING);
+        service.saveInvoiceAddress(u, INVOICE);
+        service.deleteShippingAddress(u);
         assertThat(service.get(u).shipping()).isNull();
         assertThat(service.get(u).invoice()).isEqualTo(INVOICE);
-        service.deleteInvoice(u);
+        service.deleteInvoiceAddress(u);
         assertThat(service.get(u).invoice()).isNull();
         assertThatCode(() -> {
-            service.deleteShipping(user());
-            service.deleteInvoice(user());
-            service.deleteShipping(u);
+            service.deleteShippingAddress(user());
+            service.deleteInvoiceAddress(user());
+            service.deleteShippingAddress(u);
         }).doesNotThrowAnyException();
     }
 
@@ -126,10 +126,10 @@ class CustomerModuleTests {
     void customersDontSeeEachOther() {
         AccountId a = user();
         AccountId b = user();
-        service.saveShipping(a, SHIPPING);
+        service.saveShippingAddress(a, SHIPPING);
         assertThat(service.get(b).shipping()).isNull();
-        assertThat(service.shipping(b)).isEmpty();
-        assertThat(service.shipping(a)).contains(SHIPPING);
+        assertThat(service.getShippingAddress(b)).isEmpty();
+        assertThat(service.getShippingAddress(a)).contains(SHIPPING);
     }
 
     @Test
@@ -141,11 +141,11 @@ class CustomerModuleTests {
                 CountDownLatch go = new CountDownLatch(1);
                 Future<Address> s = pool.submit(() -> {
                     go.await();
-                    return service.saveShipping(u, SHIPPING);
+                    return service.saveShippingAddress(u, SHIPPING);
                 });
                 Future<Address> inv = pool.submit(() -> {
                     go.await();
-                    return service.saveInvoice(u, INVOICE);
+                    return service.saveInvoiceAddress(u, INVOICE);
                 });
                 go.countDown();
                 s.get();

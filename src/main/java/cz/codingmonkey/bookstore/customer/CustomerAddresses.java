@@ -8,7 +8,7 @@ import java.util.Optional;
  */
 public interface CustomerAddresses {
 
-    Optional<Address> shipping(AccountId customer);
+    Optional<Address> getShippingAddress(AccountId customer);
 
-    Optional<Address> invoice(AccountId customer);
+    Optional<Address> getInvoiceAddress(AccountId customer);
 }

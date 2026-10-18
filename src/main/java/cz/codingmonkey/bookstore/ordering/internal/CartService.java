@@ -114,9 +114,9 @@ class CartService {
         Cart cart = carts.findById(customer).filter(c -> !c.isEmpty()).orElseThrow(EmptyCartException::new);
 
         Address shippingAddress = request.shipping() != null ? request.shipping()
-                : addresses.shipping(customer).orElse(null);
+                : addresses.getShippingAddress(customer).orElse(null);
         Address invoiceAddress = request.invoice() != null ? request.invoice()
-                : addresses.invoice(customer).orElse(null);
+                : addresses.getInvoiceAddress(customer).orElse(null);
         if (shippingAddress == null || invoiceAddress == null) {
             throw new MissingAddressException(shippingAddress == null, invoiceAddress == null);
         }

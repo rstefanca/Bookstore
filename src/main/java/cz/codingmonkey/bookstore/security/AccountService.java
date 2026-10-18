@@ -144,13 +144,9 @@ class AccountService implements Accounts {
     @Transactional
     void delete(AccountId id, AccountId current) {
         Account account = get(id);
-        if (id.equals(current)) {
-            throw new LastAdminException("You can't delete your own account");
-        }
-        if (account.getRole() == Role.ADMIN
-                && accounts.findAndLockByRoleAndDeletedAtIsNull(Role.ADMIN).size() <= 1) {
-            throw new LastAdminException("Can't delete the last admin account");
-        }
+        preventOnwAccountDeletion(id, current);
+        preventLastAdminDeletion(account);
+
         // Lock first so no other module can change what the policies are about to check.
         lockLive(account);
         List<AccountDeletionPolicy> policies = deletionPolicies.orderedStream().toList();
@@ -164,6 +160,19 @@ class AccountService implements Accounts {
         } else {
             accounts.delete(account);
             changes.info("Deleted account {}", id);
+        }
+    }
+
+    private static void preventOnwAccountDeletion(AccountId id, AccountId current) {
+        if (id.equals(current)) {
+            throw new LastAdminException("You can't delete your own account");
+        }
+    }
+
+    private void preventLastAdminDeletion(Account account) {
+        if (account.getRole() == Role.ADMIN
+                && accounts.findAndLockByRoleAndDeletedAtIsNull(Role.ADMIN).size() <= 1) {
+            throw new LastAdminException("Can't delete the last admin account");
         }
     }
 

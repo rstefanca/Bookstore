@@ -48,7 +48,7 @@ class AddressController {
     @ApiResponse(responseCode = "400", description = "A field is missing, blank, too long or the country isn't a "
             + "two-letter code")
     Address saveShipping(@Valid @RequestBody Address address) {
-        return addresses.saveShipping(CurrentUser.requireId(), address);
+        return addresses.saveShippingAddress(CurrentUser.requireId(), address);
     }
 
     /**
@@ -59,7 +59,7 @@ class AddressController {
     @ApiResponse(responseCode = "400", description = "A field is missing, blank, too long or the country isn't a "
             + "two-letter code")
     Address saveInvoice(@Valid @RequestBody Address address) {
-        return addresses.saveInvoice(CurrentUser.requireId(), address);
+        return addresses.saveInvoiceAddress(CurrentUser.requireId(), address);
     }
 
     /**
@@ -69,7 +69,7 @@ class AddressController {
     @ResponseStatus(NO_CONTENT)
     @ApiResponse(responseCode = "204", description = "The shipping address is no longer saved")
     void deleteShipping() {
-        addresses.deleteShipping(CurrentUser.requireId());
+        addresses.deleteShippingAddress(CurrentUser.requireId());
     }
 
     /**
@@ -79,6 +79,6 @@ class AddressController {
     @ResponseStatus(NO_CONTENT)
     @ApiResponse(responseCode = "204", description = "The invoice address is no longer saved")
     void deleteInvoice() {
-        addresses.deleteInvoice(CurrentUser.requireId());
+        addresses.deleteInvoiceAddress(CurrentUser.requireId());
     }
 }
