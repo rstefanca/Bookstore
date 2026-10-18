@@ -17,4 +17,9 @@ UPDATE account SET username = '~deleted-' || id WHERE username LIKE '~tmp-%';
 ALTER TABLE book_rating DROP CONSTRAINT book_rating_pkey;
 ALTER TABLE book_rating DROP COLUMN customer;
 ALTER TABLE book_rating ALTER COLUMN customer_id SET NOT NULL;
+-- The old key was case-sensitive, so "Bob" and "bob" could both have rated a book; keep the newer rating.
+DELETE FROM book_rating r USING book_rating s
+WHERE r.book_id = s.book_id AND r.customer_id = s.customer_id
+  AND (r.rated_at < s.rated_at OR (r.rated_at = s.rated_at AND r.ctid < s.ctid));
+
 ALTER TABLE book_rating ADD PRIMARY KEY (book_id, customer_id);

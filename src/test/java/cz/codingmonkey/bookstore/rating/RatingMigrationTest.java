@@ -84,6 +84,22 @@ class RatingMigrationTest {
     }
 
     @Test
+    void caseVariantDuplicatesCollapseToTheNewerRating() {
+        JdbcTemplate jdbc = migratedTo29();
+        long bob = insertAccount(jdbc, "bob");
+        jdbc.update("INSERT INTO book_rating (book_id, customer, stars, rated_at) VALUES "
+                + "(1, 'Gone', 1, now() - interval '2 days'), (1, 'gone', 5, now() - interval '1 day'), "
+                + "(2, 'bob', 2, now() - interval '2 days'), (2, 'Bob', 4, now() - interval '1 day')");
+
+        migrateTo30(jdbc);
+
+        assertThat(jdbc.queryForList("SELECT book_id || ':' || stars FROM book_rating ORDER BY book_id",
+                String.class)).isEqualTo(List.of("1:5", "2:4"));
+        assertThat(jdbc.queryForObject("SELECT customer_id FROM book_rating WHERE book_id = 2", Long.class))
+                .isEqualTo(bob);
+    }
+
+    @Test
     void primaryKeyStillRejectsADuplicate() {
         JdbcTemplate jdbc = migratedTo29();
         long alice = insertAccount(jdbc, "alice");
