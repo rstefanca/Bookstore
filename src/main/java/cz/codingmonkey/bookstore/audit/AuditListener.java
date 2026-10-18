@@ -23,7 +23,7 @@ class AuditListener {
     /**
      * An event delivered again (retry after a crash) is skipped when an entry with the same subject, action and
      * time exists. That only works for events that set their own {@code occurredAt}. The log line names only the
-     * action and the subject: the actor and the description may carry a customer's username and book titles.
+     * action and the subject: the actor identifies a person and the description may carry book titles.
      */
     @ApplicationModuleListener
     void on(Auditable event) {

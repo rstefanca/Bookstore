@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.ordering.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.bookcatalog.internal.AuthorRequest;
@@ -12,6 +13,7 @@ import cz.codingmonkey.bookstore.bookcatalog.internal.BookService;
 import cz.codingmonkey.bookstore.customer.TestAddresses;
 import cz.codingmonkey.bookstore.inventory.internal.InventoryService;
 import cz.codingmonkey.bookstore.pricing.internal.PricingService;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
@@ -59,7 +61,7 @@ class CheckoutDeleteRaceTest {
         BookId bookId = books.create(new BookRequest("Race", List.of(author), Set.of(), isbn, 2000, null)).id();
         pricing.setPrice(bookId, new BigDecimal("9.99"), null);
         inventory.restock(bookId, 1);
-        String customer = "racer-" + UUID.randomUUID().toString().substring(0, 8);
+        AccountId customer = TestAccountIds.next();
         carts.setQuantity(customer, bookId, 1);
         CompletableFuture<Void> delete = new CompletableFuture<>();
 

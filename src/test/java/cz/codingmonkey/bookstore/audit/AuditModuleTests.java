@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
+import cz.codingmonkey.bookstore.security.Accounts;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.Auditable;
 import cz.codingmonkey.bookstore.shared.LongId;
 import java.time.Duration;
@@ -18,6 +21,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.Scenario;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * Bootstraps only the audit module and drives it with test-only {@link Auditable} events about a test-only id, so
@@ -32,23 +36,29 @@ class AuditModuleTests {
 
     record AVeryLongSubjectNameThatGoesBeyondTheFiftyCharacterColumnLimitId(long value) implements LongId { }
 
-    record Audited(String auditAction, LongId auditSubject, String auditDescription, String actor,
+    record Audited(String auditAction, LongId auditSubject, String auditDescription, AccountId actor,
             Instant occurredAt) implements Auditable { }
+
+    static final AccountId RITA = TestAccountIds.next();
 
     @Autowired
     AuditEntryRepository repository;
+
+    /** The security module doesn't run here; the controller needs it to show usernames. */
+    @MockitoBean
+    Accounts accounts;
 
     @Test
     void recordsAnySubject(Scenario scenario) {
         var subject = new AuditSubject("ORDER", 48);
         Instant declinedAt = Instant.parse("2026-10-16T08:00:00.123456Z");
-        scenario.publish(new Audited("ORDER_PAYMENT_DECLINED", new OrderId(48), "Declined", "rita", declinedAt))
+        scenario.publish(new Audited("ORDER_PAYMENT_DECLINED", new OrderId(48), "Declined", RITA, declinedAt))
                 .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(subject),
                         list -> !list.isEmpty())
                 .andVerify(entries -> assertThat(entries).singleElement().satisfies(entry -> {
                     assertThat(entry.getAction()).isEqualTo("ORDER_PAYMENT_DECLINED");
                     assertThat(entry.getSubject()).isEqualTo(new AuditSubject("ORDER", 48));
-                    assertThat(entry.getActor()).isEqualTo("rita");
+                    assertThat(entry.getActorId()).isEqualTo(RITA);
                     assertThat(entry.getDescription()).isEqualTo("Declined");
                     assertThat(entry.getOccurredAt()).as("when it happened, not when it was recorded")
                             .isEqualTo(declinedAt);
@@ -62,14 +72,14 @@ class AuditModuleTests {
                 .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(subject),
                         list -> !list.isEmpty())
                 .andVerify(entries -> assertThat(entries).singleElement()
-                        .extracting(AuditEntry::getActor).isNull());
+                        .extracting(AuditEntry::getActorId).isNull());
     }
 
     @Test
     void theSameEventDeliveredAgainIsRecordedOnce(Scenario scenario) {
         // Events are delivered again after a crash between the listener's commit and marking the event done.
         var subject = new AuditSubject("ORDER", 50);
-        var event = new Audited("ORDER_PLACED", new OrderId(50), "1 copies", "rita",
+        var event = new Audited("ORDER_PLACED", new OrderId(50), "1 copies", RITA,
                 Instant.parse("2026-10-16T08:00:00.123456789Z"));
         scenario.publish(event)
                 .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(subject),
@@ -87,11 +97,11 @@ class AuditModuleTests {
     void theSameActionAtAnotherTimeIsRecordedAgain(Scenario scenario) {
         var subject = new AuditSubject("ORDER", 53);
         Instant first = Instant.parse("2026-10-16T09:00:00Z");
-        scenario.publish(new Audited("ORDER_PLACED", new OrderId(53), "1 copies", "rita", first))
+        scenario.publish(new Audited("ORDER_PLACED", new OrderId(53), "1 copies", RITA, first))
                 .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(subject),
                         list -> list.size() == 1);
 
-        scenario.publish(new Audited("ORDER_PLACED", new OrderId(53), "1 copies", "rita", first.plusSeconds(1)))
+        scenario.publish(new Audited("ORDER_PLACED", new OrderId(53), "1 copies", RITA, first.plusSeconds(1)))
                 .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(subject),
                         list -> list.size() == 2)
                 .andVerify(entries -> assertThat(entries).hasSize(2));
@@ -102,13 +112,13 @@ class AuditModuleTests {
     void logsOnlyActionAndSubject(Scenario scenario, CapturedOutput output) {
         var subject = new AuditSubject("ORDER", 52);
         scenario.publish(new Audited("ORDER_STOCK_MISSING", new OrderId(52), "Not enough stock: Sapiens",
-                        "rita@example.com", Instant.now()))
+                        RITA, Instant.now()))
                 .andWaitForStateChange(() -> repository.findBySubjectOrderByOccurredAtDesc(subject),
                         list -> !list.isEmpty());
 
         await().untilAsserted(() -> assertThat(output.getAll())
                 .contains("Recorded audit entry ORDER_STOCK_MISSING for order 52"));
-        assertThat(output.getAll()).doesNotContain("rita@example.com", "Sapiens");
+        assertThat(output.getAll()).doesNotContain(RITA.toString(), "Sapiens");
     }
 
     @Test

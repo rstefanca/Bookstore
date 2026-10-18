@@ -22,10 +22,10 @@ public interface Auditable {
     String auditDescription();
 
     /**
-     * Username of whoever made the change, captured at publish time ({@link CurrentUser}) because listeners run with
-     * no signed-in user; {@code null} without a signed-in user.
+     * Account of whoever made the change, captured at publish time ({@link CurrentUser#id()}) because listeners run
+     * with no signed-in user; {@code null} without a signed-in user.
      */
-    @Nullable String actor();
+    @Nullable AccountId actor();
 
     /**
      * When the change happened; by default when it is recorded. An event that must not be recorded twice when delivered

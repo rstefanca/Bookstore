@@ -4,6 +4,8 @@ import cz.codingmonkey.bookstore.customer.Address;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.ordering.OrderIdType;
 import cz.codingmonkey.bookstore.pricing.Money;
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountIdType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -41,9 +43,10 @@ class CustomerOrder {
     @Type(OrderIdType.class)
     private OrderId id;
 
-    /** The customer's username. */
-    @Column(nullable = false, length = 100)
-    private String customer;
+    /** The customer's account. */
+    @Column(name = "customer_id", nullable = false)
+    @Type(AccountIdType.class)
+    private AccountId customer;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -89,7 +92,7 @@ class CustomerOrder {
     protected CustomerOrder() {
     }
 
-    CustomerOrder(String customer, List<OrderLine> lines, Currency currency, Address shipping, Address invoice) {
+    CustomerOrder(AccountId customer, List<OrderLine> lines, Currency currency, Address shipping, Address invoice) {
         this.customer = customer;
         this.lines.addAll(lines);
         this.currency = currency;
@@ -101,7 +104,7 @@ class CustomerOrder {
     }
 
     OrderId getId() { return id; }
-    String getCustomer() { return customer; }
+    AccountId getCustomer() { return customer; }
     OrderStatus getStatus() { return status; }
     List<OrderLine> getLines() { return List.copyOf(lines); }
     Money getTotal() { return new Money(total, currency); }

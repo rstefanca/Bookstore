@@ -6,8 +6,13 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDetails;
@@ -35,6 +40,8 @@ import cz.codingmonkey.bookstore.payment.PaymentSucceeded;
 import cz.codingmonkey.bookstore.payment.RefundRequested;
 import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
+import cz.codingmonkey.bookstore.security.Accounts;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -51,7 +58,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.modulith.test.ApplicationModuleTest;
@@ -83,6 +92,10 @@ class OrderingModuleTests {
     @MockitoBean
     CustomerAddresses addresses;
 
+    /** Nor does the security module. */
+    @MockitoBean
+    Accounts accounts;
+
     @Autowired
     CartService carts;
 
@@ -101,11 +114,16 @@ class OrderingModuleTests {
     @Autowired
     JdbcTemplate jdbc;
 
-    String customer;
+    AccountId customer;
 
     @BeforeEach
     void catalogWithTwoBooks() {
-        customer = "customer-" + UUID.randomUUID().toString().substring(0, 8);
+        customer = TestAccountIds.next();
+        given(accounts.usernamesOf(anyCollection())).willAnswer(call -> {
+            Map<AccountId, String> usernames = new HashMap<>();
+            call.<Collection<AccountId>>getArgument(0).forEach(id -> usernames.put(id, "user-" + id));
+            return usernames;
+        });
         Map<BookId, BookDetails> books = Map.of(
                 DUNE, new BookDetails(DUNE, "Dune", List.of(), List.of(), "isbn-1", 1965, null),
                 FOUNDATION, new BookDetails(FOUNDATION, "Foundation", List.of(), List.of(), "isbn-2", 1951, null));
@@ -457,8 +475,36 @@ class OrderingModuleTests {
         OrderView order = placeOrder();
 
         assertThat(orders.findOwn(customer, order.id()).id()).isEqualTo(order.id());
-        assertThatThrownBy(() -> orders.findOwn("someone-else", order.id()))
+        assertThatThrownBy(() -> orders.findOwn(TestAccountIds.next(), order.id()))
                 .isInstanceOf(OrderNotFoundException.class);
+    }
+
+    @Test
+    void ordersShowTheCustomersUsernameAndId() {
+        OrderView order = placeOrder();
+
+        assertThat(order.customer()).isEqualTo("user-" + customer);
+        assertThat(order.customerId()).isEqualTo(customer);
+        assertThat(orders.findOwn(customer, order.id()).customer()).isEqualTo("user-" + customer);
+    }
+
+    @Test
+    void staffListLooksUpTheUsernamesOncePerPage() {
+        List<AccountId> customers = List.of(TestAccountIds.next(), TestAccountIds.next(), TestAccountIds.next());
+        for (AccountId someone : customers) {
+            carts.setQuantity(someone, DUNE, 1);
+            carts.checkout(someone, CheckoutRequest.NONE);
+        }
+        clearInvocations(accounts);
+
+        Page<OrderView> page = orders.findAll(
+                PageRequest.of(0, 100, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
+
+        verify(accounts).usernamesOf(argThat(ids -> ids.containsAll(customers)));
+        verifyNoMoreInteractions(accounts);
+        assertThat(page.getContent()).filteredOn(order -> customers.contains(order.customerId()))
+                .extracting(OrderView::customer)
+                .containsExactlyInAnyOrderElementsOf(customers.stream().map(id -> "user-" + id).toList());
     }
 
     @Test
@@ -552,7 +598,7 @@ class OrderingModuleTests {
 
     @Test
     void progressEventsSurviveTheEventRegistry() {
-        var event = new OrderProgressedEvent(new OrderId(5), OrderStep.PAYMENT_DECLINED, "Declined", "rita",
+        var event = new OrderProgressedEvent(new OrderId(5), OrderStep.PAYMENT_DECLINED, "Declined", new AccountId(7),
                 Instant.parse("2026-10-16T08:00:00.123456Z"));
 
         assertThat(serializer.deserialize(serializer.serialize(event), OrderProgressedEvent.class)).isEqualTo(event);

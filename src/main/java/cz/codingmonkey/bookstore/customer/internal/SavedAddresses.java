@@ -1,11 +1,15 @@
 package cz.codingmonkey.bookstore.customer.internal;
 
 import cz.codingmonkey.bookstore.customer.Address;
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountIdType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.EmbeddedColumnNaming;
+import org.hibernate.annotations.Type;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -15,9 +19,11 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "customer_address")
 class SavedAddresses {
 
-    /** The customer's username. */
+    /** The customer's account. */
     @Id
-    private String customer;
+    @Column(name = "customer_id")
+    @Type(AccountIdType.class)
+    private AccountId customerId;
 
     @Embedded
     @EmbeddedColumnNaming("shipping_%s")

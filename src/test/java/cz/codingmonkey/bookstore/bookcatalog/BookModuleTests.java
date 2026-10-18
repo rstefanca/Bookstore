@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.bookcatalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.internal.AuthorRequest;
 import cz.codingmonkey.bookstore.bookcatalog.internal.AuthorService;
@@ -40,7 +41,7 @@ class BookModuleTests {
     @Test
     void eventsWithTypedIdsSurviveTheEventPublicationRegistry() {
         var event = new BookCreatedEvent(new BookId(7), "Good Omens", List.of("Terry Pratchett", "Neil Gaiman"),
-                List.of("Comedy", "Fantasy"), "9780060853983", "Armageddon, with jokes.", 3, "jane");
+                List.of("Comedy", "Fantasy"), "9780060853983", "Armageddon, with jokes.", 3, TestAccountIds.next());
 
         Object serialized = serializer.serialize(event);
 

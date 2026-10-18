@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.ordering;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.Auditable;
 import java.time.Instant;
 import org.jmolecules.event.annotation.DomainEvent;
@@ -10,7 +11,7 @@ import org.jmolecules.event.annotation.DomainEvent;
  * order really moves on, so repeated or late results don't produce extra steps.
  *
  * @param detail short human-readable text, e.g. "Charged 38.97 EUR"
- * @param actor  the order's customer (username), also for steps handled in the background
+ * @param actor  the order's customer, also for steps handled in the background
  * @param occurredAt when the step happened; later than the order's previous steps, even ones published together
  */
 @DomainEvent
@@ -18,7 +19,7 @@ public record OrderProgressedEvent(
         OrderId orderId,
         OrderStep step,
         String detail,
-        String actor,
+        AccountId actor,
         Instant occurredAt
 ) implements Auditable {
 

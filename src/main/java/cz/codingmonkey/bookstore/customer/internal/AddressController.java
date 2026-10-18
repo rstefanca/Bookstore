@@ -3,10 +3,10 @@ package cz.codingmonkey.bookstore.customer.internal;
 import static org.springframework.http.HttpStatus.NO_CONTENT;
 
 import cz.codingmonkey.bookstore.customer.Address;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.security.Principal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -36,8 +36,8 @@ class AddressController {
      */
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Your saved shipping and invoice addresses")
-    SavedAddressesView get(Principal customer) {
-        return addresses.get(customer.getName());
+    SavedAddressesView get() {
+        return addresses.get(CurrentUser.requireId());
     }
 
     /**
@@ -47,8 +47,8 @@ class AddressController {
     @ApiResponse(responseCode = "200", description = "The saved shipping address")
     @ApiResponse(responseCode = "400", description = "A field is missing, blank, too long or the country isn't a "
             + "two-letter code")
-    Address saveShipping(@Valid @RequestBody Address address, Principal customer) {
-        return addresses.saveShipping(customer.getName(), address);
+    Address saveShipping(@Valid @RequestBody Address address) {
+        return addresses.saveShipping(CurrentUser.requireId(), address);
     }
 
     /**
@@ -58,8 +58,8 @@ class AddressController {
     @ApiResponse(responseCode = "200", description = "The saved invoice address")
     @ApiResponse(responseCode = "400", description = "A field is missing, blank, too long or the country isn't a "
             + "two-letter code")
-    Address saveInvoice(@Valid @RequestBody Address address, Principal customer) {
-        return addresses.saveInvoice(customer.getName(), address);
+    Address saveInvoice(@Valid @RequestBody Address address) {
+        return addresses.saveInvoice(CurrentUser.requireId(), address);
     }
 
     /**
@@ -68,8 +68,8 @@ class AddressController {
     @DeleteMapping("/shipping")
     @ResponseStatus(NO_CONTENT)
     @ApiResponse(responseCode = "204", description = "The shipping address is no longer saved")
-    void deleteShipping(Principal customer) {
-        addresses.deleteShipping(customer.getName());
+    void deleteShipping() {
+        addresses.deleteShipping(CurrentUser.requireId());
     }
 
     /**
@@ -78,7 +78,7 @@ class AddressController {
     @DeleteMapping("/invoice")
     @ResponseStatus(NO_CONTENT)
     @ApiResponse(responseCode = "204", description = "The invoice address is no longer saved")
-    void deleteInvoice(Principal customer) {
-        addresses.deleteInvoice(customer.getName());
+    void deleteInvoice() {
+        addresses.deleteInvoice(CurrentUser.requireId());
     }
 }

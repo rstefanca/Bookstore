@@ -160,7 +160,7 @@ public class PricingService implements Prices {
         Instant now = Instant.now();
         closeCurrentPeriod(bookId, now);
         history.save(new PricePeriod(bookId, price, now));
-        events.publishEvent(new PriceChangedEvent(bookId, oldPrice, price, CurrentUser.username()));
+        events.publishEvent(new PriceChangedEvent(bookId, oldPrice, price, CurrentUser.id()));
         if (oldPrice == null) {
             changes.info("Set price of book {} to {}", bookId, price);
         } else {
@@ -175,7 +175,7 @@ public class PricingService implements Prices {
         BookPrice bookPrice = prices.findById(bookId).orElseThrow(() -> new PriceNotFoundException(bookId));
         prices.delete(bookPrice);
         closeCurrentPeriod(bookId, Instant.now());
-        events.publishEvent(new PriceChangedEvent(bookId, bookPrice.getPrice(), null, CurrentUser.username()));
+        events.publishEvent(new PriceChangedEvent(bookId, bookPrice.getPrice(), null, CurrentUser.id()));
         changes.info("Removed price of book {} (was {})", bookId, bookPrice.getPrice());
     }
 

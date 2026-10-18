@@ -123,7 +123,7 @@ class RatingModuleTests {
     void bookDeletionRemovesItsRatings(Scenario scenario) {
         service.rate(DUNE, A, 4);
         service.rate(NEUROMANCER, A, 5);
-        BookDeletedEvent event = new BookDeletedEvent(DUNE, "9780441013593", "staff");
+        BookDeletedEvent event = new BookDeletedEvent(DUNE, "9780441013593", TestAccountIds.next());
 
         scenario.publish(event)
                 .andWaitForStateChange(() -> service.summaryOf(DUNE).count(), count -> count == 0);

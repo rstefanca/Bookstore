@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.customer.internal;
 
 import cz.codingmonkey.bookstore.customer.Address;
 import cz.codingmonkey.bookstore.customer.CustomerAddresses;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -19,50 +20,50 @@ class AddressService implements CustomerAddresses {
         this.repository = repository;
     }
 
-    SavedAddressesView get(String customer) {
+    SavedAddressesView get(AccountId customer) {
         return repository.findById(customer)
                 .map(s -> new SavedAddressesView(s.shipping(), s.invoice()))
                 .orElseGet(() -> new SavedAddressesView(null, null));
     }
 
     @Override
-    public Optional<Address> shipping(String username) {
-        return repository.findById(username).map(SavedAddresses::shipping);
+    public Optional<Address> shipping(AccountId customer) {
+        return repository.findById(customer).map(SavedAddresses::shipping);
     }
 
     @Override
-    public Optional<Address> invoice(String username) {
-        return repository.findById(username).map(SavedAddresses::invoice);
+    public Optional<Address> invoice(AccountId customer) {
+        return repository.findById(customer).map(SavedAddresses::invoice);
     }
 
     @Transactional
-    Address saveShipping(String customer, Address address) {
+    Address saveShipping(AccountId customer, Address address) {
         lock(customer).shipping(address);
-        changes.info("Customer {} saved a shipping address", customer);
+        changes.info("Account {} saved a shipping address", customer);
         return address;
     }
 
     @Transactional
-    Address saveInvoice(String customer, Address address) {
+    Address saveInvoice(AccountId customer, Address address) {
         lock(customer).invoice(address);
-        changes.info("Customer {} saved an invoice address", customer);
+        changes.info("Account {} saved an invoice address", customer);
         return address;
     }
 
     @Transactional
-    void deleteShipping(String customer) {
+    void deleteShipping(AccountId customer) {
         lock(customer).shipping(null);
-        changes.info("Customer {} removed the shipping address", customer);
+        changes.info("Account {} removed the shipping address", customer);
     }
 
     @Transactional
-    void deleteInvoice(String customer) {
+    void deleteInvoice(AccountId customer) {
         lock(customer).invoice(null);
-        changes.info("Customer {} removed the invoice address", customer);
+        changes.info("Account {} removed the invoice address", customer);
     }
 
-    private SavedAddresses lock(String customer) {
-        repository.insertIfAbsent(customer);
-        return repository.findAndLockByCustomer(customer).orElseThrow();
+    private SavedAddresses lock(AccountId customer) {
+        repository.insertIfAbsent(customer.value());
+        return repository.findAndLockByCustomerId(customer).orElseThrow();
     }
 }

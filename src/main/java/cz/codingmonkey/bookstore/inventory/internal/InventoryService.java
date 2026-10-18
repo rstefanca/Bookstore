@@ -61,7 +61,7 @@ public class InventoryService implements Stock {
         InventoryItem item = repository.findById(bookId).orElseGet(() -> new InventoryItem(bookId));
         item.restock(amount);
         repository.save(item);
-        events.publishEvent(new StockAdjustedEvent(bookId, amount, item.getQuantity(), CurrentUser.username()));
+        events.publishEvent(new StockAdjustedEvent(bookId, amount, item.getQuantity(), CurrentUser.id()));
         changes.info("Restocked book {} by {}, now {} in stock", bookId, amount, item.getQuantity());
         return InventoryResponse.from(item);
     }
@@ -70,7 +70,7 @@ public class InventoryService implements Stock {
     public InventoryResponse withdraw(BookId bookId, int amount) {
         InventoryItem item = get(bookId);
         item.withdraw(amount);
-        events.publishEvent(new StockAdjustedEvent(bookId, -amount, item.getQuantity(), CurrentUser.username()));
+        events.publishEvent(new StockAdjustedEvent(bookId, -amount, item.getQuantity(), CurrentUser.id()));
         changes.info("Withdrew {} of book {}, now {} in stock", amount, bookId, item.getQuantity());
         return InventoryResponse.from(item);
     }

@@ -79,7 +79,7 @@ public class BookService {
                         request.publishedYear(), request.description()));
         events.publishEvent(new BookCreatedEvent(book.getId(), book.getTitle(), authorNames(book, bookAuthors),
                 genreNames(bookGenres), book.getIsbn(), book.getDescription(), book.getVersion(),
-                CurrentUser.username()));
+                CurrentUser.id()));
         changesLog.info("Created book {} \"{}\" (ISBN {})", book.getId(), book.getTitle(), book.getIsbn());
         return BookResponse.from(book, bookAuthors, bookGenres);
     }
@@ -114,7 +114,7 @@ public class BookService {
                     throw new BookDeletionVetoedException(reason);
                 });
         repository.delete(book);
-        events.publishEvent(new BookDeletedEvent(book.getId(), book.getIsbn(), CurrentUser.username()));
+        events.publishEvent(new BookDeletedEvent(book.getId(), book.getIsbn(), CurrentUser.id()));
         changesLog.info("Deleted book {} \"{}\" (ISBN {})", book.getId(), book.getTitle(), book.getIsbn());
     }
 

@@ -1,9 +1,13 @@
 package cz.codingmonkey.bookstore.audit;
 
+import cz.codingmonkey.bookstore.security.Accounts;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
+import java.util.Map;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,16 +34,21 @@ class AuditController {
      *
      * @param action      what happened, in upper snake case, e.g. {@code BOOK_CREATED}, {@code PRICE_CHANGED} or
      *                    {@code ORDER_CONFIRMED}
-     * @param actor       username of whoever made the change; {@code null} for changes without a signed-in user
+     * @param actor       username of whoever made the change, {@code "(deleted user)"} if their account was deleted;
+     *                    {@code null} for changes without a signed-in user
+     * @param actorId     account id of whoever made the change; {@code null} for changes without a signed-in user
      * @param description the change in words, e.g. "Price changed from 10.00 EUR to 8.50 EUR"
      */
     record AuditEntryResponse(AuditEntryId id, String action, SubjectResponse subject, @Nullable String actor,
-            String description, Instant occurredAt) {
+            @Nullable AccountId actorId, String description, Instant occurredAt) {
 
-        static AuditEntryResponse from(AuditEntry entry) {
+        /** @param usernames the usernames of the entry's actor, from {@link Accounts#usernamesOf} */
+        static AuditEntryResponse from(AuditEntry entry, Map<AccountId, String> usernames) {
+            AccountId actorId = entry.getActorId();
             return new AuditEntryResponse(entry.getId(), entry.getAction(),
                     new SubjectResponse(entry.getSubject().typeName(), entry.getSubject().value()),
-                    entry.getActor(), entry.getDescription(), entry.getOccurredAt());
+                    actorId == null ? null : usernames.get(actorId), actorId, entry.getDescription(),
+                    entry.getOccurredAt());
         }
     }
 
@@ -48,9 +57,11 @@ class AuditController {
     }
 
     private final AuditEntryRepository repository;
+    private final Accounts accounts;
 
-    AuditController(AuditEntryRepository repository) {
+    AuditController(AuditEntryRepository repository, Accounts accounts) {
         this.repository = repository;
+        this.accounts = accounts;
     }
 
     /**
@@ -89,6 +100,9 @@ class AuditController {
         Page<AuditEntry> entries = subjectType != null
                 ? repository.findBySubject(new AuditSubject(subjectType, subjectId), page)
                 : repository.findAllBy(page);
-        return new PagedModel<>(entries.map(AuditEntryResponse::from));
+        // One lookup for the whole page.
+        Map<AccountId, String> usernames = accounts.usernamesOf(
+                entries.stream().map(AuditEntry::getActorId).filter(Objects::nonNull).distinct().toList());
+        return new PagedModel<>(entries.map(entry -> AuditEntryResponse.from(entry, usernames)));
     }
 }

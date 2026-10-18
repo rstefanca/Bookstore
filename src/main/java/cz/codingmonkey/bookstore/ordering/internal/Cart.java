@@ -1,7 +1,10 @@
 package cz.codingmonkey.bookstore.ordering.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountIdType;
 import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -9,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Version;
 import java.util.ArrayList;
 import java.util.List;
+import org.hibernate.annotations.Type;
 
 /**
  * A customer's cart: which books, how many of each. Prices aren't stored; they're looked up when shown and fixed
@@ -20,12 +24,14 @@ class Cart {
     static final int MAX_QUANTITY = 20;
     static final int MAX_LINES = 50;
 
-    /** The customer's username. */
+    /** The customer's account. */
     @Id
-    private String customer;
+    @Column(name = "customer_id")
+    @Type(AccountIdType.class)
+    private AccountId customer;
 
     @ElementCollection
-    @CollectionTable(name = "cart_line", joinColumns = @JoinColumn(name = "customer"))
+    @CollectionTable(name = "cart_line", joinColumns = @JoinColumn(name = "customer_id"))
     private List<CartLine> lines = new ArrayList<>();
 
     /** Two checkouts of the same cart at once: one fails instead of both placing an order. */
@@ -35,11 +41,11 @@ class Cart {
     protected Cart() {
     }
 
-    Cart(String customer) {
+    Cart(AccountId customer) {
         this.customer = customer;
     }
 
-    String getCustomer() { return customer; }
+    AccountId getCustomer() { return customer; }
     List<CartLine> getLines() { return List.copyOf(lines); }
 
     boolean isEmpty() {

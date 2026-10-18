@@ -1,5 +1,6 @@
 package cz.codingmonkey.bookstore.customer;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.util.Optional;
 
 /**
@@ -7,7 +8,7 @@ import java.util.Optional;
  */
 public interface CustomerAddresses {
 
-    Optional<Address> shipping(String username);
+    Optional<Address> shipping(AccountId customer);
 
-    Optional<Address> invoice(String username);
+    Optional<Address> invoice(AccountId customer);
 }

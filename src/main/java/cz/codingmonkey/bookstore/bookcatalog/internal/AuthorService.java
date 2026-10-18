@@ -60,7 +60,7 @@ public class AuthorService {
         Map<GenreId, Genre> favorites = genres.resolve(request.favoriteGenreIds());
         Author author = authors.save(new Author(request.name(), request.favoriteGenreIds()));
 
-        events.publishEvent(new AuthorCreatedEvent(author.getId(), author.getName(), CurrentUser.username()));
+        events.publishEvent(new AuthorCreatedEvent(author.getId(), author.getName(), CurrentUser.id()));
         changes.info("Created author {} \"{}\"", author.getId(), author.getName());
 
         return AuthorResponse.from(author, favorites);

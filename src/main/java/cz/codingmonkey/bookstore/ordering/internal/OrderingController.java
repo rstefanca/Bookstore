@@ -4,13 +4,13 @@ import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.ordering.OrderId;
 import cz.codingmonkey.bookstore.ordering.internal.OrderingResponses.CartView;
 import cz.codingmonkey.bookstore.ordering.internal.OrderingResponses.OrderView;
+import cz.codingmonkey.bookstore.shared.CurrentUser;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
-import java.security.Principal;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -57,8 +57,8 @@ class OrderingController {
     @Tag(name = "Cart", description = """
             The signed-in customer's cart (`CUSTOMER`). It shows current prices; checkout turns it into an order with \
             those prices fixed.""")
-    CartView cart(Principal customer) {
-        return carts.view(customer.getName());
+    CartView cart() {
+        return carts.view(CurrentUser.requireId());
     }
 
     /** Sets how many copies of a book are in your cart; 0 removes it. Only books for sale can be added. */
@@ -68,23 +68,23 @@ class OrderingController {
     @ApiResponse(responseCode = "400", description = """
             quantity isn't between 0 and 20, or the cart already holds 50 different books""")
     @ApiResponse(responseCode = "409", description = "The book doesn't exist or isn't for sale")
-    CartView setQuantity(@PathVariable BookId bookId, @Valid @RequestBody Quantity request, Principal customer) {
-        return carts.setQuantity(customer.getName(), bookId, request.quantity());
+    CartView setQuantity(@PathVariable BookId bookId, @Valid @RequestBody Quantity request) {
+        return carts.setQuantity(CurrentUser.requireId(), bookId, request.quantity());
     }
 
     /** Removes a book from your cart. */
     @DeleteMapping("/api/cart/items/{bookId}")
     @Tag(name = "Cart")
-    CartView remove(@PathVariable BookId bookId, Principal customer) {
-        return carts.setQuantity(customer.getName(), bookId, 0);
+    CartView remove(@PathVariable BookId bookId) {
+        return carts.setQuantity(CurrentUser.requireId(), bookId, 0);
     }
 
     /** Empties your cart. */
     @DeleteMapping("/api/cart")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Tag(name = "Cart")
-    void clear(Principal customer) {
-        carts.clear(customer.getName());
+    void clear() {
+        carts.clear(CurrentUser.requireId());
     }
 
     /**
@@ -110,8 +110,8 @@ class OrderingController {
             The cart is empty, some books are no longer for sale, some books don't have enough stock (each named with \
             how many copies are left), or the cart was changed by another request at the same time""")
     ResponseEntity<OrderView> checkout(
-            @RequestBody(required = false) @Valid @Nullable CheckoutRequest request, Principal customer) {
-        OrderView order = carts.checkout(customer.getName(), request == null ? CheckoutRequest.NONE : request);
+            @RequestBody(required = false) @Valid @Nullable CheckoutRequest request) {
+        OrderView order = carts.checkout(CurrentUser.requireId(), request == null ? CheckoutRequest.NONE : request);
         return ResponseEntity.accepted().location(URI.create("/api/orders/" + order.id())).body(order);
     }
 
@@ -121,8 +121,8 @@ class OrderingController {
             Orders placed from the cart: customers see their own (`CUSTOMER`), staff see all. A new order is \
             `PENDING`; once stock is reserved it is `AWAITING_PAYMENT`, then `CONFIRMED`, or `REJECTED` when stock \
             or payment fails (`reason` says why). A confirmed order can be `CANCELLED`.""")
-    PagedModel<OrderView> ownOrders(Principal customer, Pageable page) {
-        return new PagedModel<>(orders.findOwn(customer.getName(), newestFirst(page)));
+    PagedModel<OrderView> ownOrders(Pageable page) {
+        return new PagedModel<>(orders.findOwn(CurrentUser.requireId(), newestFirst(page)));
     }
 
     /** Returns one of your orders, e.g. to see whether it has been confirmed yet. */
@@ -130,8 +130,8 @@ class OrderingController {
     @Tag(name = "Orders")
     @ApiResponse(responseCode = "200", description = "The order")
     @ApiResponse(responseCode = "404", description = "You have no order with this id")
-    OrderView ownOrder(@PathVariable OrderId id, Principal customer) {
-        return orders.findOwn(customer.getName(), id);
+    OrderView ownOrder(@PathVariable OrderId id) {
+        return orders.findOwn(CurrentUser.requireId(), id);
     }
 
     /**
@@ -144,8 +144,8 @@ class OrderingController {
     @ApiResponse(responseCode = "200", description = "The cancelled order")
     @ApiResponse(responseCode = "404", description = "You have no order with this id")
     @ApiResponse(responseCode = "409", description = "The order isn't CONFIRMED")
-    OrderView cancel(@PathVariable OrderId id, Principal customer) {
-        return orders.cancel(customer.getName(), id);
+    OrderView cancel(@PathVariable OrderId id) {
+        return orders.cancel(CurrentUser.requireId(), id);
     }
 
     /** Lists all customers' orders, newest first; staff only. */

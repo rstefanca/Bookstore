@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.inventory;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.Auditable;
 import org.jmolecules.event.annotation.DomainEvent;
 import org.jspecify.annotations.Nullable;
@@ -10,11 +11,11 @@ import org.jspecify.annotations.Nullable;
  *
  * @param delta       positive for a restock, negative for a withdrawal
  * @param newQuantity stock level after the adjustment
- * @param actor       username of whoever made the change; {@code null} without a signed-in user (startup,
+ * @param actor       account of whoever made the change; {@code null} without a signed-in user (startup,
  *                    background work)
  */
 @DomainEvent
-public record StockAdjustedEvent(BookId bookId, int delta, int newQuantity, @Nullable String actor)
+public record StockAdjustedEvent(BookId bookId, int delta, int newQuantity, @Nullable AccountId actor)
         implements Auditable {
 
     public boolean isOutOfStock() {

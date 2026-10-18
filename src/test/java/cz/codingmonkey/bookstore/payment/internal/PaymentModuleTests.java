@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.payment.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.payment.PaymentFailed;
 import cz.codingmonkey.bookstore.payment.PaymentReference;
@@ -11,6 +12,7 @@ import cz.codingmonkey.bookstore.payment.PaymentRequested;
 import cz.codingmonkey.bookstore.payment.PaymentSucceeded;
 import cz.codingmonkey.bookstore.payment.RefundRequested;
 import cz.codingmonkey.bookstore.pricing.Money;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.StreamSupport;
@@ -29,6 +31,8 @@ import org.springframework.modulith.test.Scenario;
 @Import(TestcontainersConfiguration.class)
 class PaymentModuleTests {
 
+    static final AccountId RITA = TestAccountIds.next();
+
     static final AtomicLong REFERENCES = new AtomicLong(System.nanoTime() % 1_000_000_000L);
 
     @Autowired
@@ -41,7 +45,7 @@ class PaymentModuleTests {
     void chargesAmountsUpToTheLimit(Scenario scenario) {
         PaymentReference reference = newReference();
 
-        scenario.publish(new PaymentRequested(reference, Money.of("100.00", "EUR"), "rita"))
+        scenario.publish(new PaymentRequested(reference, Money.of("100.00", "EUR"), RITA))
                 .andWaitForEventOfType(PaymentSucceeded.class)
                 .matching(succeeded -> succeeded.reference().equals(reference))
                 .toArrive();
@@ -53,7 +57,7 @@ class PaymentModuleTests {
     void declinesAmountsAboveTheLimit(Scenario scenario) {
         PaymentReference reference = newReference();
 
-        scenario.publish(new PaymentRequested(reference, Money.of("100.01", "EUR"), "rita"))
+        scenario.publish(new PaymentRequested(reference, Money.of("100.01", "EUR"), RITA))
                 .andWaitForEventOfType(PaymentFailed.class)
                 .matching(failed -> failed.reference().equals(reference))
                 .toArriveAndVerify(failed -> assertThat(failed.reason()).contains("above 100"));
@@ -64,7 +68,7 @@ class PaymentModuleTests {
     @Test
     void repeatedRequestsGetTheSameAnswer(PublishedEvents events, Scenario scenario) {
         PaymentReference reference = newReference();
-        var request = new PaymentRequested(reference, Money.of("10", "EUR"), "rita");
+        var request = new PaymentRequested(reference, Money.of("10", "EUR"), RITA);
 
         scenario.stimulate(() -> {
                     publisher.publishEvent(request);
@@ -83,8 +87,8 @@ class PaymentModuleTests {
         charge(scenario, reference);
 
         scenario.stimulate(() -> {
-                    publisher.publishEvent(new RefundRequested(reference, "rita"));
-                    publisher.publishEvent(new RefundRequested(reference, "rita"));
+                    publisher.publishEvent(new RefundRequested(reference, RITA));
+                    publisher.publishEvent(new RefundRequested(reference, RITA));
                 })
                 .andWaitForEventOfType(PaymentRefunded.class)
                 .matching(refunded -> refunded.reference().equals(reference))
@@ -97,12 +101,12 @@ class PaymentModuleTests {
     void refundIsAnnouncedOnce(PublishedEvents events, Scenario scenario) {
         PaymentReference reference = newReference();
         charge(scenario, reference);
-        scenario.publish(new RefundRequested(reference, "rita"))
+        scenario.publish(new RefundRequested(reference, RITA))
                 .andWaitForEventOfType(PaymentRefunded.class)
                 .matching(refunded -> refunded.reference().equals(reference))
                 .toArrive();
 
-        scenario.stimulate(() -> publisher.publishEvent(new RefundRequested(reference, "rita")))
+        scenario.stimulate(() -> publisher.publishEvent(new RefundRequested(reference, RITA)))
                 .andWaitForStateChange(() -> true).andVerify(x -> { });
 
         await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(3)).untilAsserted(() ->
@@ -113,12 +117,12 @@ class PaymentModuleTests {
     @Test
     void doesNotRefundDeclinedPayments(Scenario scenario) {
         PaymentReference reference = newReference();
-        scenario.publish(new PaymentRequested(reference, Money.of("500", "EUR"), "rita"))
+        scenario.publish(new PaymentRequested(reference, Money.of("500", "EUR"), RITA))
                 .andWaitForEventOfType(PaymentFailed.class)
                 .matching(failed -> failed.reference().equals(reference))
                 .toArrive();
 
-        scenario.stimulate(() -> publisher.publishEvent(new RefundRequested(reference, "rita")))
+        scenario.stimulate(() -> publisher.publishEvent(new RefundRequested(reference, RITA)))
                 .andWaitForStateChange(() -> true).andVerify(x -> { });
 
         await().during(Duration.ofMillis(500)).atMost(Duration.ofSeconds(2))
@@ -126,7 +130,7 @@ class PaymentModuleTests {
     }
 
     private void charge(Scenario scenario, PaymentReference reference) {
-        scenario.publish(new PaymentRequested(reference, Money.of("10", "EUR"), "rita"))
+        scenario.publish(new PaymentRequested(reference, Money.of("10", "EUR"), RITA))
                 .andWaitForEventOfType(PaymentSucceeded.class)
                 .matching(succeeded -> succeeded.reference().equals(reference))
                 .toArrive();

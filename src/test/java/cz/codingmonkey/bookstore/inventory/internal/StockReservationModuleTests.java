@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
@@ -13,9 +14,10 @@ import cz.codingmonkey.bookstore.inventory.StockAdjustedEvent;
 import cz.codingmonkey.bookstore.inventory.StockReleaseRequested;
 import cz.codingmonkey.bookstore.inventory.StockReleased;
 import cz.codingmonkey.bookstore.inventory.StockReservationFailed;
-import cz.codingmonkey.bookstore.inventory.StockReservationRequested;
 import cz.codingmonkey.bookstore.inventory.StockReservationRequested.Line;
+import cz.codingmonkey.bookstore.inventory.StockReservationRequested;
 import cz.codingmonkey.bookstore.inventory.StockReserved;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -36,6 +38,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @ApplicationModuleTest
 @Import(TestcontainersConfiguration.class)
 class StockReservationModuleTests {
+
+    static final AccountId RITA = TestAccountIds.next();
+    static final AccountId SAM = TestAccountIds.next();
 
     /** Unique ids per test, since tests share the database. */
     static final AtomicLong IDS = new AtomicLong(System.nanoTime() % 1_000_000_000L);
@@ -65,7 +70,7 @@ class StockReservationModuleTests {
     void reservesAllLines(Scenario scenario) {
         ReservationId id = newReservation();
 
-        scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 2), new Line(foundation, 1)), "rita"))
+        scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 2), new Line(foundation, 1)), RITA))
                 .andWaitForEventOfType(StockReserved.class)
                 .matching(reserved -> reserved.reservationId().equals(id))
                 .toArrive();
@@ -78,7 +83,7 @@ class StockReservationModuleTests {
     void reservesNothingIfAnyLineLacksStock(Scenario scenario) {
         ReservationId id = newReservation();
 
-        scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 2), new Line(foundation, 2)), "rita"))
+        scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 2), new Line(foundation, 2)), RITA))
                 .andWaitForEventOfType(StockReservationFailed.class)
                 .matching(failed -> failed.reservationId().equals(id))
                 .toArriveAndVerify(failed -> assertThat(failed.missingBooks()).containsExactly(foundation));
@@ -92,7 +97,7 @@ class StockReservationModuleTests {
         ReservationId id = newReservation();
         BookId neverStocked = new BookId(IDS.incrementAndGet());
 
-        scenario.publish(new StockReservationRequested(id, List.of(new Line(neverStocked, 1)), "rita"))
+        scenario.publish(new StockReservationRequested(id, List.of(new Line(neverStocked, 1)), RITA))
                 .andWaitForEventOfType(StockReservationFailed.class)
                 .matching(failed -> failed.reservationId().equals(id))
                 .toArriveAndVerify(failed -> assertThat(failed.missingBooks()).containsExactly(neverStocked));
@@ -101,7 +106,7 @@ class StockReservationModuleTests {
     @Test
     void repeatedRequestsGetTheSameAnswerWithoutTakingStockTwice(PublishedEvents events, Scenario scenario) {
         ReservationId id = newReservation();
-        var request = new StockReservationRequested(id, List.of(new Line(dune, 2)), "rita");
+        var request = new StockReservationRequested(id, List.of(new Line(dune, 2)), RITA);
         reserve(scenario, request);
 
         scenario.publish(request)
@@ -112,12 +117,12 @@ class StockReservationModuleTests {
     @Test
     void releasingPutsStockBackOnce(Scenario scenario) {
         ReservationId id = newReservation();
-        reserve(scenario, new StockReservationRequested(id, List.of(new Line(dune, 2)), "rita"));
+        reserve(scenario, new StockReservationRequested(id, List.of(new Line(dune, 2)), RITA));
 
         // Asked twice at once (e.g. a retry): the stock comes back only once.
         scenario.stimulate(() -> {
-                    publisher.publishEvent(new StockReleaseRequested(id, "rita"));
-                    publisher.publishEvent(new StockReleaseRequested(id, "rita"));
+                    publisher.publishEvent(new StockReleaseRequested(id, RITA));
+                    publisher.publishEvent(new StockReleaseRequested(id, RITA));
                 })
                 .andWaitForStateChange(() -> quantity(dune), quantity -> quantity == 3)
                 .andVerify(quantity -> assertThat(quantity).isEqualTo(3));
@@ -128,11 +133,11 @@ class StockReservationModuleTests {
     @Test
     void releaseIsAnnouncedOnce(PublishedEvents events, Scenario scenario) {
         ReservationId id = newReservation();
-        reserve(scenario, new StockReservationRequested(id, List.of(new Line(dune, 2)), "rita"));
+        reserve(scenario, new StockReservationRequested(id, List.of(new Line(dune, 2)), RITA));
 
         scenario.stimulate(() -> {
-                    publisher.publishEvent(new StockReleaseRequested(id, "rita"));
-                    publisher.publishEvent(new StockReleaseRequested(id, "rita"));
+                    publisher.publishEvent(new StockReleaseRequested(id, RITA));
+                    publisher.publishEvent(new StockReleaseRequested(id, RITA));
                 })
                 .andWaitForStateChange(() -> quantity(dune), quantity -> quantity == 3)
                 .andVerify(quantity -> { });
@@ -145,12 +150,12 @@ class StockReservationModuleTests {
     void stockChangesNameWhoCausedThem(Scenario scenario) {
         ReservationId id = newReservation();
 
-        scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 1)), "rita"))
+        scenario.publish(new StockReservationRequested(id, List.of(new Line(dune, 1)), RITA))
                 .andWaitForEventOfType(StockAdjustedEvent.class)
                 .matching(adjusted -> adjusted.bookId().equals(dune))
                 .toArriveAndVerify(adjusted -> {
                     assertThat(adjusted.delta()).isEqualTo(-1);
-                    assertThat(adjusted.actor()).isEqualTo("rita");
+                    assertThat(adjusted.actor()).isEqualTo(RITA);
                 });
     }
 
@@ -162,8 +167,8 @@ class StockReservationModuleTests {
         // Published together, so both are handled at the same time after the transaction commits.
         scenario.stimulate(() -> {
                     var lastCopy = List.of(new Line(foundation, 1));
-                    publisher.publishEvent(new StockReservationRequested(first, lastCopy, "rita"));
-                    publisher.publishEvent(new StockReservationRequested(second, lastCopy, "sam"));
+                    publisher.publishEvent(new StockReservationRequested(first, lastCopy, RITA));
+                    publisher.publishEvent(new StockReservationRequested(second, lastCopy, SAM));
                 })
                 .andWaitForStateChange(() -> answers(events, first) + answers(events, second) == 2 ? true : null)
                 .andVerify(done -> { });

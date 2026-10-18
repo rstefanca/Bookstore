@@ -1,6 +1,7 @@
 package cz.codingmonkey.bookstore.ordering;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.LIST;
 import static org.awaitility.Awaitility.await;
 
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
@@ -10,6 +11,7 @@ import cz.codingmonkey.bookstore.payment.PaymentRefunded;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -247,6 +249,83 @@ class OrderingIntegrationTest {
         staff.get().uri("/api/cart").exchange().expectStatus().isForbidden();
         RestTestClient.bindToServer().baseUrl("http://localhost:" + port).build()
                 .get().uri("/api/cart").exchange().expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void ordersShowTheUsernameAndTheId() {
+        long book = book("9.99", 5);
+        setQuantity(book, 1).expectStatus().isOk();
+        long id = accountId(buyer);
+
+        var created = customer.post().uri("/api/cart/checkout").exchange()
+                .expectStatus().isAccepted()
+                .expectBody(Map.class).returnResult().getResponseBody();
+        assertThat(created.get("customer")).isEqualTo(buyer);
+        assertThat(((Number) created.get("customerId")).longValue()).isEqualTo(id);
+        long order = ((Number) created.get("id")).longValue();
+
+        customer.get().uri("/api/orders/{id}", order).exchange()
+                .expectBody()
+                .jsonPath("$.customer").isEqualTo(buyer)
+                .jsonPath("$.customerId").isEqualTo(id);
+        customer.get().uri("/api/orders").exchange()
+                .expectBody()
+                .jsonPath("$.content[0].customer").isEqualTo(buyer)
+                .jsonPath("$.content[0].customerId").isEqualTo(id);
+        staff.get().uri("/api/orders/all?size=100").exchange()
+                .expectBody()
+                .jsonPath("$.content[?(@.id == %d)].customer".formatted(order))
+                .value(names -> assertThat(names).asInstanceOf(LIST).containsExactly(buyer))
+                .jsonPath("$.content[?(@.id == %d)].customerId".formatted(order))
+                .value(ids -> assertThat(ids).asInstanceOf(LIST).singleElement()
+                        .satisfies(found -> assertThat(((Number) found).longValue()).isEqualTo(id)));
+    }
+
+    /** The staff list looks the usernames up once per page (see {@code OrderingModuleTests}). */
+    @Test
+    void staffListResolvesNamesForManyCustomers() {
+        long book = book("9.99", 10);
+        Map<Long, String> buyers = new HashMap<>();
+        for (String prefix : List.of("first", "second", "third")) {
+            String username = username(prefix);
+            RestTestClient client = signUp(username);
+            saveAddresses(client);
+            client.put().uri("/api/cart/items/{id}", book).contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"quantity\": 1}").exchange().expectStatus().isOk();
+            Map<?, ?> created = client.post().uri("/api/cart/checkout").exchange()
+                    .expectStatus().isAccepted()
+                    .expectBody(Map.class).returnResult().getResponseBody();
+            buyers.put(((Number) created.get("id")).longValue(), username);
+        }
+
+        var body = staff.get().uri("/api/orders/all?size=100").exchange()
+                .expectStatus().isOk()
+                .expectBody();
+        buyers.forEach((order, username) -> body
+                .jsonPath("$.content[?(@.id == %d)].customer".formatted(order))
+                .value(names -> assertThat(names).asInstanceOf(LIST).containsExactly(username)));
+    }
+
+    @Test
+    void deletedCustomerShowsAsDeletedUser() {
+        long book = book("9.99", 5);
+        setQuantity(book, 1).expectStatus().isOk();
+        long order = checkout();
+        long id = accountId(buyer);
+
+        jdbc.update("UPDATE account SET deleted_at = now() WHERE id = ?", id);
+
+        staff.get().uri("/api/orders/all?size=100").exchange()
+                .expectBody()
+                .jsonPath("$.content[?(@.id == %d)].customer".formatted(order))
+                .value(names -> assertThat(names).asInstanceOf(LIST).containsExactly("(deleted user)"))
+                .jsonPath("$.content[?(@.id == %d)].customerId".formatted(order))
+                .value(ids -> assertThat(ids).asInstanceOf(LIST).singleElement()
+                        .satisfies(found -> assertThat(((Number) found).longValue()).isEqualTo(id)));
+    }
+
+    private long accountId(String username) {
+        return jdbc.queryForObject("SELECT id FROM account WHERE username = ?", Long.class, username);
     }
 
     private long checkout() {

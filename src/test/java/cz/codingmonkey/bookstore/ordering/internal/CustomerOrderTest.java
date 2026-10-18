@@ -3,6 +3,7 @@ package cz.codingmonkey.bookstore.ordering.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.customer.TestAddresses;
 import cz.codingmonkey.bookstore.pricing.Money;
@@ -16,7 +17,7 @@ import org.junit.jupiter.api.Test;
  */
 class CustomerOrderTest {
 
-    final CustomerOrder order = new CustomerOrder("rita", List.of(
+    final CustomerOrder order = new CustomerOrder(TestAccountIds.next(), List.of(
             new OrderLine(new BookId(1), "Dune", 2, new BigDecimal("14.99")),
             new OrderLine(new BookId(2), "Foundation", 1, new BigDecimal("11.99"))), Currency.getInstance("EUR"), TestAddresses.SHIPPING, TestAddresses.INVOICE);
 

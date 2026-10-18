@@ -6,9 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.customer.Address;
-import java.util.UUID;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,13 +31,13 @@ class CustomerModuleTests {
     @Autowired
     JdbcTemplate jdbc;
 
-    private static String user() {
-        return "cust-" + UUID.randomUUID();
+    private static AccountId user() {
+        return TestAccountIds.next();
     }
 
     @Test
     void startsEmpty() {
-        String u = user();
+        AccountId u = user();
         SavedAddressesView view = service.get(u);
         assertThat(view.shipping()).isNull();
         assertThat(view.invoice()).isNull();
@@ -46,7 +47,7 @@ class CustomerModuleTests {
 
     @Test
     void shippingAndInvoiceAreKeptApart() {
-        String u = user();
+        AccountId u = user();
         service.saveShipping(u, SHIPPING);
         service.saveInvoice(u, INVOICE);
         SavedAddressesView view = service.get(u);
@@ -58,7 +59,7 @@ class CustomerModuleTests {
 
     @Test
     void saveReplaces() {
-        String u = user();
+        AccountId u = user();
         service.saveShipping(u, SHIPPING);
         service.saveInvoice(u, INVOICE);
         service.saveShipping(u, INVOICE);
@@ -68,7 +69,7 @@ class CustomerModuleTests {
 
     @Test
     void deleteRemovesOnlyThatOne() {
-        String u = user();
+        AccountId u = user();
         service.saveShipping(u, SHIPPING);
         service.saveInvoice(u, INVOICE);
         service.deleteShipping(u);
@@ -85,8 +86,8 @@ class CustomerModuleTests {
 
     @Test
     void customersDontSeeEachOther() {
-        String a = user();
-        String b = user();
+        AccountId a = user();
+        AccountId b = user();
         service.saveShipping(a, SHIPPING);
         assertThat(service.get(b).shipping()).isNull();
         assertThat(service.shipping(b)).isEmpty();
@@ -98,7 +99,7 @@ class CustomerModuleTests {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             for (int i = 0; i < 20; i++) {
-                String u = user();
+                AccountId u = user();
                 CountDownLatch go = new CountDownLatch(1);
                 Future<Address> s = pool.submit(() -> {
                     go.await();
@@ -122,7 +123,7 @@ class CustomerModuleTests {
     @Test
     void halfAnAddressCannotBeStored() {
         assertThatThrownBy(() -> jdbc.update(
-                "INSERT INTO customer_address (customer, shipping_name) VALUES (?, 'x')", user()))
+                "INSERT INTO customer_address (customer_id, shipping_name) VALUES (?, 'x')", user().value()))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

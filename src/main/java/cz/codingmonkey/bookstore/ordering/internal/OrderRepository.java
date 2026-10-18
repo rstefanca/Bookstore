@@ -2,6 +2,7 @@ package cz.codingmonkey.bookstore.ordering.internal;
 
 import cz.codingmonkey.bookstore.bookcatalog.BookId;
 import cz.codingmonkey.bookstore.ordering.OrderId;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -12,9 +13,9 @@ import org.springframework.data.jpa.repository.Query;
 
 interface OrderRepository extends JpaRepository<CustomerOrder, OrderId> {
 
-    Page<CustomerOrder> findByCustomer(String customer, Pageable page);
+    Page<CustomerOrder> findByCustomer(AccountId customer, Pageable page);
 
-    Optional<CustomerOrder> findByIdAndCustomer(OrderId id, String customer);
+    Optional<CustomerOrder> findByIdAndCustomer(OrderId id, AccountId customer);
 
     Page<CustomerOrder> findAllBy(Pageable page);
 

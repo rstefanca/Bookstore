@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+import cz.codingmonkey.bookstore.TestAccountIds;
 import cz.codingmonkey.bookstore.TestcontainersConfiguration;
 import cz.codingmonkey.bookstore.bookcatalog.BookCatalog;
 import cz.codingmonkey.bookstore.bookcatalog.BookDeletedEvent;
@@ -14,6 +15,7 @@ import cz.codingmonkey.bookstore.pricing.internal.PriceNotFoundException;
 import cz.codingmonkey.bookstore.pricing.internal.PricePeriodResponse;
 import cz.codingmonkey.bookstore.pricing.internal.PricingService;
 import cz.codingmonkey.bookstore.pricing.internal.UnknownBookException;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,11 +142,13 @@ class PricingModuleTests {
         BookId bookId = new BookId(206);
         pricing.setPrice(bookId, BigDecimal.TEN, null);
 
-        scenario.publish(new BookDeletedEvent(bookId, "isbn", "jane"))
+        AccountId jane = TestAccountIds.next();
+
+        scenario.publish(new BookDeletedEvent(bookId, "isbn", jane))
                 .andWaitForEventOfType(PriceChangedEvent.class)
                 .matching(event -> event.bookId().equals(bookId) && event.newPrice() == null)
                 .toArriveAndVerify(event -> assertThat(event.actor())
-                        .as("whoever deleted the book removed its price").isEqualTo("jane"));
+                        .as("whoever deleted the book removed its price").isEqualTo(jane));
 
         assertThat(pricing.findByBookIds(List.of(bookId))).isEmpty();
     }

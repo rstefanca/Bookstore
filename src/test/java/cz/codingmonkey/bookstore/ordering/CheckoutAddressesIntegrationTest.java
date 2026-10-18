@@ -142,8 +142,9 @@ class CheckoutAddressesIntegrationTest {
     @Test
     void oldOrdersHaveNullAddresses() {
         long order = jdbc.queryForObject("""
-                INSERT INTO customer_order (customer, status, total, currency, created_at, version)
-                VALUES (?, 'CONFIRMED', 10.00, 'EUR', now(), 0) RETURNING id""", Long.class, buyer);
+                INSERT INTO customer_order (customer_id, status, total, currency, created_at, version)
+                SELECT id, 'CONFIRMED', 10.00, 'EUR', now(), 0 FROM account WHERE username = ? RETURNING id""",
+                Long.class, buyer);
 
         customer.get().uri("/api/orders/{id}", order).exchange().expectStatus().isOk()
                 .expectBody()

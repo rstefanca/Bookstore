@@ -1,5 +1,7 @@
 package cz.codingmonkey.bookstore.audit;
 
+import cz.codingmonkey.bookstore.shared.AccountId;
+import cz.codingmonkey.bookstore.shared.AccountIdType;
 import cz.codingmonkey.bookstore.shared.LongId;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -38,9 +40,10 @@ class AuditEntry {
     @Column(nullable = false)
     private String description;
 
-    /** Username of whoever made the change; {@code null} for changes without a signed-in user. */
-    @Column(length = 100)
-    private @Nullable String actor;
+    /** Account of whoever made the change; {@code null} for changes without a signed-in user. */
+    @Column(name = "actor_id")
+    @Type(AccountIdType.class)
+    private @Nullable AccountId actorId;
 
     @Column(nullable = false)
     private Instant occurredAt;
@@ -48,11 +51,11 @@ class AuditEntry {
     protected AuditEntry() {
     }
 
-    private AuditEntry(String action, AuditSubject subject, @Nullable String actor, String description,
+    private AuditEntry(String action, AuditSubject subject, @Nullable AccountId actorId, String description,
             Instant occurredAt) {
         this.action = action;
         this.subject = subject;
-        this.actor = actor;
+        this.actorId = actorId;
         this.description = description;
         this.occurredAt = occurredAt;
     }
@@ -65,7 +68,7 @@ class AuditEntry {
      *                   the entry stored for it
      * @throws IllegalArgumentException if the action or the subject's type name is malformed (same format)
      */
-    static AuditEntry of(String action, LongId subject, @Nullable String actor, String description,
+    static AuditEntry of(String action, LongId subject, @Nullable AccountId actorId, String description,
             Instant occurredAt) {
         Objects.requireNonNull(subject, "subject");
         if (!isValidName(action)) {
@@ -76,7 +79,7 @@ class AuditEntry {
             throw new IllegalArgumentException("Audit subject type must be upper snake case of at most "
                     + MAX_NAME_LENGTH + " characters, was '" + subject.typeName() + "'");
         }
-        return new AuditEntry(action, AuditSubject.of(subject), actor, description,
+        return new AuditEntry(action, AuditSubject.of(subject), actorId, description,
                 occurredAt.truncatedTo(ChronoUnit.MICROS));
     }
 
@@ -88,6 +91,6 @@ class AuditEntry {
     String getAction() { return action; }
     AuditSubject getSubject() { return subject; }
     String getDescription() { return description; }
-    @Nullable String getActor() { return actor; }
+    @Nullable AccountId getActorId() { return actorId; }
     Instant getOccurredAt() { return occurredAt; }
 }

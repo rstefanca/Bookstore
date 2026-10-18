@@ -15,6 +15,8 @@ import cz.codingmonkey.bookstore.ordering.internal.OrderingResponses.CartView;
 import cz.codingmonkey.bookstore.ordering.internal.OrderingResponses.OrderView;
 import cz.codingmonkey.bookstore.pricing.Money;
 import cz.codingmonkey.bookstore.pricing.Prices;
+import cz.codingmonkey.bookstore.security.Accounts;
+import cz.codingmonkey.bookstore.shared.AccountId;
 import cz.codingmonkey.bookstore.shared.ChangeLog;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -38,6 +40,7 @@ class CartService {
     private final Prices prices;
     private final Stock stock;
     private final CustomerAddresses addresses;
+    private final Accounts accounts;
     private final ApplicationEventPublisher events;
 
     CartService(CartRepository carts,
@@ -46,6 +49,7 @@ class CartService {
                 Prices prices,
                 Stock stock,
                 CustomerAddresses addresses,
+                Accounts accounts,
                 ApplicationEventPublisher events) {
         this.carts = carts;
         this.orders = orders;
@@ -53,11 +57,12 @@ class CartService {
         this.prices = prices;
         this.stock = stock;
         this.addresses = addresses;
+        this.accounts = accounts;
         this.events = events;
     }
 
     /** The cart with current titles and prices. */
-    CartView view(String customer) {
+    CartView view(AccountId customer) {
         List<CartLine> lines = carts.findById(customer).map(Cart::getLines).orElse(List.of());
         Map<BookId, Money> currentBookPrices = prices.pricesOf(lines.stream().map(CartLine::getBookId).toList());
 
@@ -84,7 +89,7 @@ class CartService {
 
     /** Puts the book in the cart (or changes how many); 0 removes it. Only books for sale can be added. */
     @Transactional
-    CartView setQuantity(String customer, BookId bookId, int quantity) {
+    CartView setQuantity(AccountId customer, BookId bookId, int quantity) {
         if (quantity > 0 && (catalog.findBook(bookId).isEmpty() || prices.priceOf(bookId).isEmpty())) {
             throw new NotForSaleException("Book " + bookId + " doesn't exist or isn't for sale");
         }
@@ -94,7 +99,7 @@ class CartService {
     }
 
     @Transactional
-    void clear(String customer) {
+    void clear(AccountId customer) {
         carts.findById(customer).ifPresent(Cart::clear);
     }
 
@@ -105,7 +110,7 @@ class CartService {
      * the one in the request, else the customer's saved one; if either is missing nothing is ordered.
      */
     @Transactional
-    OrderView checkout(String customer, CheckoutRequest request) {
+    OrderView checkout(AccountId customer, CheckoutRequest request) {
         Cart cart = carts.findById(customer).filter(c -> !c.isEmpty()).orElseThrow(EmptyCartException::new);
 
         Address shippingAddress = request.shipping() != null ? request.shipping()
@@ -147,7 +152,7 @@ class CartService {
 
         reserveStockAndPlaceOrder(customer, order, lines);
 
-        return OrderView.from(order);
+        return OrderView.from(order, accounts.usernamesOf(List.of(customer)));
     }
 
     private Optional<BookDetails> getBookDetails(CartLine line) {
@@ -194,7 +199,7 @@ class CartService {
         }
     }
 
-    private void reserveStockAndPlaceOrder(String customer, CustomerOrder order, List<OrderLine> lines) {
+    private void reserveStockAndPlaceOrder(AccountId customer, CustomerOrder order, List<OrderLine> lines) {
         events.publishEvent(new StockReservationRequested(new ReservationId(order.getId().value()),
                 lines.stream().map(line -> new StockReservationRequested.Line(line.getBookId(), line.getQuantity()))
                         .toList(),
