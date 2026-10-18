@@ -258,7 +258,8 @@ empty by that. Any assertion on `$.content[*].bookId`/`orderId` becomes `subject
   redelivered event skipped by (subject, action, occurredAt).
 - CLAUDE.md: replace "and a new action also needs a value in `AuditEntry.Action`" with "the action must be upper
   snake case (≤ 50 characters) and the subject is stored as `LongId.typeName()` + value, so audit depends only on
-  `shared` and needs no change for new actions or subjects".
+  `shared` and needs no change for new actions or subjects". (Since account deletion, audit also depends on `security`'s public account API; see
+  `docs/design/account-deletion.md`.)
 - `purchase-audit.md`: first line after the title: `> Note: audit entries now store a generic subject
   (subject_type + subject_id); see audit-subject.md.`
 - `audit-subject.md`: status → `implemented (<date>)`; `TypeNamesTest` bullet → "pins `typeName()` of the seven
